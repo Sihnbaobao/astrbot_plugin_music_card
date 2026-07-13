@@ -1,4 +1,5 @@
 import re
+import json
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
@@ -85,11 +86,10 @@ class MusicCardPlugin(Star):
 
 
         if not songid:
+
             return
 
 
-
-        # QQ音乐XML卡片
 
         jump_url = (
             "https://i.y.qq.com/v8/playsong.html?"
@@ -100,51 +100,57 @@ class MusicCardPlugin(Star):
 
 
 
-        xml = f"""
-<msg serviceID="2"
-     templateID="1"
-     action="web"
-     actionData=""
-     brief="[分享]QQ音乐"
-     sourceMsgId="0"
-     url="{jump_url}"
-     flag="3">
+        # QQ音乐分享JSON
 
-    <item layout="0">
+        card = {
 
-        <title>QQ音乐</title>
+            "app": "com.tencent.music",
 
-        <summary>点击播放歌曲</summary>
+            "desc": "QQ音乐",
 
-    </item>
+            "view": "music",
 
+            "ver": "0.0.0.0",
 
-    <item>
+            "prompt": "[分享] QQ音乐",
 
-        <title>QQ音乐歌曲</title>
+            "meta": {
 
-        <summary>来自QQ音乐分享</summary>
+                "music": {
 
-    </item>
+                    "title": "QQ音乐歌曲",
 
+                    "desc": "QQ音乐",
 
-    <source
-        name="QQ音乐"
-        icon="https://y.qq.com/favicon.ico"/>
+                    "jumpUrl": jump_url,
 
-</msg>
-"""
+                    "musicUrl": jump_url,
+
+                    "preview": jump_url
+
+                }
+
+            }
+
+        }
+
 
 
         message = [
 
             {
 
-                "type": "xml",
+                "type": "json",
 
                 "data": {
 
-                    "data": xml
+                    "data": json.dumps(
+
+                        card,
+
+                        ensure_ascii=False
+
+                    )
 
                 }
 
@@ -165,6 +171,7 @@ class MusicCardPlugin(Star):
     # =====================
     # 消息监听
     # =====================
+
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
