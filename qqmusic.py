@@ -2,78 +2,51 @@ import re
 import httpx
 
 
-def extract_url(text):
-    """
-    从消息里提取URL
-    """
-    urls = re.findall(
-        r"https?://[^\s]+",
-        text
-    )
-
-    if urls:
-        return urls[0]
-
-    return None
-
-
-
-async def expand_url(url):
-
-    try:
-
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=10,
-            headers={
-                "User-Agent":
-                "Mozilla/5.0"
-            }
-        ) as client:
-
-            r = await client.get(url)
-
-            return str(r.url)
-
-
-    except Exception:
-
-        return url
-
-
-
 
 async def parse_qq_music(text):
 
+
     result = {
+
         "songid": None,
+
         "songmid": None
+
     }
 
 
-    # 提取链接
 
-    url = extract_url(text)
-
-
-    if not url:
-        return result
+    # =====================
+    # songid
+    # =====================
 
 
+    sid = re.search(
 
-    # 短链展开
+        r"songid=(\d+)",
 
-    if "c6.y.qq.com" in url:
+        text
 
-        url = await expand_url(url)
+    )
+
+
+    if sid:
+
+        result["songid"] = sid.group(1)
 
 
 
+    # =====================
     # songmid
+    # =====================
+
 
     mid = re.search(
+
         r"(?:songDetail/|songmid=)([A-Za-z0-9]+)",
-        url
+
+        text
+
     )
 
 
@@ -83,17 +56,142 @@ async def parse_qq_music(text):
 
 
 
-    # songid
-
-    sid = re.search(
-        r"songid=(\d+)",
-        url
-    )
+    # =====================
+    # QQ短链接
+    # =====================
 
 
-    if sid:
+    if (
 
-        result["songid"] = sid.group(1)
+        "c6.y.qq.com" in text
+
+    ):
+
+
+        try:
+
+
+            async with httpx.AsyncClient(
+
+                follow_redirects=True,
+
+                timeout=10,
+
+                headers={
+
+                    "User-Agent":
+
+                    "Mozilla/5.0"
+
+                }
+
+            ) as client:
+
+
+                r = await client.get(text)
+
+
+                url = str(r.url)
+
+
+
+                sid = re.search(
+
+                    r"songid=(\d+)",
+
+                    url
+
+                )
+
+
+                if sid:
+
+                    result["songid"] = sid.group(1)
+
+
+
+                mid = re.search(
+
+                    r"songmid=([A-Za-z0-9]+)",
+
+                    url
+
+                )
+
+
+                if mid:
+
+                    result["songmid"] = mid.group(1)
+
+
+
+        except Exception:
+
+
+            pass
+
+
+
+    # =====================
+    # i.y.qq.com 网页分享
+    # =====================
+
+
+    if (
+
+        "i.y.qq.com" in text
+
+        and not result["songid"]
+
+    ):
+
+
+        try:
+
+
+            async with httpx.AsyncClient(
+
+                follow_redirects=True,
+
+                timeout=10,
+
+                headers={
+
+                    "User-Agent":
+
+                    "Mozilla/5.0"
+
+                }
+
+            ) as client:
+
+
+                r = await client.get(text)
+
+
+                url = str(r.url)
+
+
+
+                sid = re.search(
+
+                    r"songid=(\d+)",
+
+                    url
+
+                )
+
+
+                if sid:
+
+                    result["songid"] = sid.group(1)
+
+
+
+        except Exception:
+
+
+            pass
 
 
 
