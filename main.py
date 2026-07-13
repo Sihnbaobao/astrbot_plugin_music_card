@@ -181,7 +181,24 @@ class MusicCardPlugin(Star):
         event: AstrMessageEvent
     ):
 
+import json
 
+logger = self.context.logger
+
+logger.info(f"消息组件: {event.message_obj.message}")
+
+for comp in event.message_obj.message:
+    logger.info(f"组件类型: {type(comp)}")
+    logger.info(repr(comp))
+
+    if hasattr(comp, "__dict__"):
+        logger.info(comp.__dict__)
+
+    if hasattr(comp, "data"):
+        try:
+            logger.info(json.dumps(comp.data, ensure_ascii=False, indent=2))
+        except Exception:
+            logger.info(str(comp.data))
         text = event.message_str
 
 
