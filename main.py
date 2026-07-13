@@ -1,5 +1,4 @@
 import re
-import json
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
@@ -85,26 +84,67 @@ class MusicCardPlugin(Star):
     ):
 
 
-        # QQ音乐 OneBot原生音乐消息
-        # 使用songid兼容性最高
-
         if not songid:
-
             return
 
+
+
+        # QQ音乐XML卡片
+
+        jump_url = (
+            "https://i.y.qq.com/v8/playsong.html?"
+            "songid="
+            + songid
+            + "&songtype=0"
+        )
+
+
+
+        xml = f"""
+<msg serviceID="2"
+     templateID="1"
+     action="web"
+     actionData=""
+     brief="[分享]QQ音乐"
+     sourceMsgId="0"
+     url="{jump_url}"
+     flag="3">
+
+    <item layout="0">
+
+        <title>QQ音乐</title>
+
+        <summary>点击播放歌曲</summary>
+
+    </item>
+
+
+    <item>
+
+        <title>QQ音乐歌曲</title>
+
+        <summary>来自QQ音乐分享</summary>
+
+    </item>
+
+
+    <source
+        name="QQ音乐"
+        icon="https://y.qq.com/favicon.ico"/>
+
+</msg>
+"""
 
 
         message = [
 
             {
 
-                "type": "music",
+                "type": "xml",
 
                 "data": {
 
-                    "type": "qq",
-
-                    "id": songid
+                    "data": xml
 
                 }
 
