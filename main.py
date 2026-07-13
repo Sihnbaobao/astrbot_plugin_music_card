@@ -3,8 +3,7 @@ import json
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
-
-from utils.qqmusic import parse_qq_music
+from .qqmusic import parse_qq_music
 
 
 
