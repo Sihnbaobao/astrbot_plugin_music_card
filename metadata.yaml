@@ -4,3 +4,5 @@ author: Sihnbaobao
 description: 自动将QQ音乐和网易云音乐链接转换为音乐卡片
 version: 0.1.0
 repo: https://github.com/Sihnbaobao/astrbot_plugin_music_card
+support_platforms:
+  - aiocqhttp
