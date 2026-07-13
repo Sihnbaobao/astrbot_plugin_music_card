@@ -1,5 +1,6 @@
 import re
 import json
+import httpx
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
@@ -11,13 +12,12 @@ from .qqmusic import parse_qq_music
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.4"
+    "0.1.5"
 )
 class MusicCardPlugin(Star):
 
 
     def __init__(self, context):
-
         super().__init__(context)
 
 
@@ -32,9 +32,7 @@ class MusicCardPlugin(Star):
         message
     ):
 
-
         if event.message_obj.group_id:
-
 
             await event.bot.api.call_action(
                 "send_group_msg",
@@ -42,9 +40,7 @@ class MusicCardPlugin(Star):
                 message=message
             )
 
-
         else:
-
 
             await event.bot.api.call_action(
                 "send_private_msg",
@@ -69,15 +65,10 @@ class MusicCardPlugin(Star):
 
             {
                 "type": "music",
-
                 "data": {
-
                     "type": "163",
-
                     "id": song_id
-
                 }
-
             }
 
         ]
@@ -91,7 +82,51 @@ class MusicCardPlugin(Star):
 
 
     # =========================
-    # QQ音乐
+    # songid 转 songmid
+    # =========================
+
+    async def get_songmid(
+        self,
+        songid
+    ):
+
+        try:
+
+            url = (
+                "https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg"
+                f"?songid={songid}"
+            )
+
+
+            async with httpx.AsyncClient(
+                headers={
+                    "User-Agent":
+                    "Mozilla/5.0"
+                },
+                timeout=10
+            ) as client:
+
+
+                r = await client.get(url)
+
+
+                data = r.json()
+
+
+                mid = data["data"][0]["mid"]
+
+
+                return mid
+
+
+        except Exception:
+
+            return None
+
+
+
+    # =========================
+    # QQ音乐卡片
     # =========================
 
     async def send_qq(
@@ -102,37 +137,37 @@ class MusicCardPlugin(Star):
     ):
 
 
-        if songid:
+        # 没有songmid，用songid查询
 
+        if not songmid and songid:
 
-            jump_url = (
-                "https://i.y.qq.com/v8/playsong.html?"
-                f"songid={songid}"
-                "&songtype=0"
-                "#webchat_redirect"
+            songmid = await self.get_songmid(
+                songid
             )
 
 
-        else:
+        if not songmid:
+
+            return
 
 
-            jump_url = (
-                "https://i.y.qq.com/v8/playsong.html?"
-                f"songmid={songmid}"
-            )
 
+        jump_url = (
+            "https://y.qq.com/n/ryqq/songDetail/"
+            f"{songmid}"
+        )
 
 
         card = {
 
 
-            "app": "com.tencent.music",
+            "app": "com.tencent.qqmusic",
 
 
-            "view": "news",
+            "view": "song",
 
 
-            "ver": "1.0.0.0",
+            "ver": "0.0.0.1",
 
 
             "prompt": "[分享]QQ音乐",
@@ -141,19 +176,22 @@ class MusicCardPlugin(Star):
             "meta": {
 
 
-                "news": {
+                "music": {
 
 
-                    "title": "QQ音乐",
+                    "appid": "100497308",
 
 
-                    "desc": "QQ音乐歌曲",
+                    "songmid": songmid,
 
 
                     "jumpUrl": jump_url,
 
 
-                    "tag": "QQ音乐"
+                    "preview": "",
+
+
+                    "title": "QQ音乐歌曲"
 
 
                 }
@@ -184,7 +222,6 @@ class MusicCardPlugin(Star):
         ]
 
 
-
         await self.send_music(
             event,
             message
@@ -195,7 +232,6 @@ class MusicCardPlugin(Star):
     # =========================
     # 消息监听
     # =========================
-
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -223,7 +259,6 @@ class MusicCardPlugin(Star):
 
             if result:
 
-
                 await self.send_163(
                     event,
                     result.group(1)
@@ -243,24 +278,21 @@ class MusicCardPlugin(Star):
 
             "y.qq.com" in text
 
-            or
-
-            "c6.y.qq.com" in text
+            or "c6.y.qq.com" in text
 
         ):
 
 
-            qq = await parse_qq_music(text)
-
+            qq = await parse_qq_music(
+                text
+            )
 
 
             if (
 
                 qq["songid"]
 
-                or
-
-                qq["songmid"]
+                or qq["songmid"]
 
             ):
 
