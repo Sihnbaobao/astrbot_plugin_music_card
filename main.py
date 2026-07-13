@@ -20,33 +20,44 @@ class MusicCardPlugin(Star):
         super().__init__(context)
 
 
+    async def send_music(self, event, message):
 
-    async def send_music(
-        self,
-        event,
-        message
-    ):
+        try:
 
-        if event.message_obj.group_id:
-
-            await event.bot.api.call_action(
-                "send_group_msg",
-                group_id=event.message_obj.group_id,
-                message=message
+            group_id = getattr(
+                event.message_obj,
+                "group_id",
+                None
             )
 
-        else:
 
-            await event.bot.api.call_action(
-                "send_private_msg",
-                user_id=event.get_sender_id(),
-                message=message
+            if group_id:
+
+                await event.bot.api.call_action(
+                    "send_group_msg",
+                    group_id=group_id,
+                    message=message
+                )
+
+            else:
+
+                await event.bot.api.call_action(
+                    "send_private_msg",
+                    user_id=event.get_sender_id(),
+                    message=message
+                )
+
+
+        except Exception as e:
+
+            self.log.error(
+                f"发送音乐卡片失败: {e}"
             )
 
 
 
     # =====================
-    # 网易云
+    # 网易云音乐
     # =====================
 
     async def send_163(
@@ -55,15 +66,25 @@ class MusicCardPlugin(Star):
         song_id
     ):
 
+
         message = [
+
             {
+
                 "type": "music",
+
                 "data": {
+
                     "type": "163",
-                    "id": song_id
+
+                    "id": str(song_id)
+
                 }
+
             }
+
         ]
+
 
         await self.send_music(
             event,
@@ -79,34 +100,31 @@ class MusicCardPlugin(Star):
     async def send_qq(
         self,
         event,
-        songid=None,
-        songmid=None
+        songmid=None,
+        songid=None
     ):
 
 
-        # QQ音乐推荐使用 songmid
-        if songmid:
+        if not songmid and not songid:
 
-            jump_url = (
-                "https://y.qq.com/n/ryqq/songDetail/"
-                + songmid
-            )
-
-        elif songid:
-
-            jump_url = (
-                "https://i.y.qq.com/v8/playsong.html?"
-                "songid="
-                + songid
-                "&songtype=0"
-            )
-
-        else:
             return
 
 
+        if songmid:
 
-        # NapCat 支持的 QQ音乐卡片格式
+            url = (
+                "https://y.qq.com/n/ryqq/songDetail/"
+                f"{songmid}"
+            )
+
+        else:
+
+            url = (
+                "https://i.y.qq.com/v8/playsong.html?"
+                f"songid={songid}"
+            )
+
+
 
         card = {
 
@@ -116,7 +134,7 @@ class MusicCardPlugin(Star):
 
             "ver": "0.0.0.0",
 
-            "prompt": "[分享]QQ音乐",
+            "prompt": "分享音乐",
 
             "meta": {
 
@@ -128,11 +146,11 @@ class MusicCardPlugin(Star):
 
                     "desc": "QQ音乐",
 
-                    "jumpUrl": jump_url,
+                    "jumpUrl": url,
 
-                    "preview": jump_url,
+                    "musicUrl": url,
 
-                    "musicUrl": jump_url
+                    "preview": url
 
                 }
 
@@ -162,6 +180,7 @@ class MusicCardPlugin(Star):
         ]
 
 
+
         await self.send_music(
             event,
             message
@@ -169,11 +188,9 @@ class MusicCardPlugin(Star):
 
 
 
-
     # =====================
     # 消息监听
     # =====================
-
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -187,67 +204,69 @@ class MusicCardPlugin(Star):
         text = event.message_str
 
 
-        # -----------------
-        # 网易云
-        # -----------------
-
-        if "music.163.com" in text:
+        try:
 
 
-            result = re.search(
-                r"id=(\d+)",
-                text
-            )
+            # 网易云
+
+            if "music.163.com" in text:
 
 
-            if result:
-
-                await self.send_163(
-                    event,
-                    result.group(1)
+                match = re.search(
+                    r"(?:id=|song/)(\d+)",
+                    text
                 )
 
 
-                event.stop_event()
+                if match:
 
-                return
+                    await self.send_163(
+                        event,
+                        match.group(1)
+                    )
 
+                    event.stop_event()
 
-
-        # -----------------
-        # QQ音乐
-        # -----------------
-
-
-        if (
-            "y.qq.com" in text
-            or
-            "c6.y.qq.com" in text
-        ):
+                    return
 
 
-            qq = await parse_qq_music(text)
 
-
+            # QQ音乐
 
             if (
-                qq.get("songid")
+                "y.qq.com" in text
                 or
-                qq.get("songmid")
+                "c6.y.qq.com" in text
             ):
 
 
+                qq = await parse_qq_music(
+                    text
+                )
+
+
+                if not qq:
+
+                    return
+
+
                 await self.send_qq(
-
                     event,
-
-                    songid=qq.get("songid"),
-
-                    songmid=qq.get("songmid")
-
+                    songmid=qq.get(
+                        "songmid"
+                    ),
+                    songid=qq.get(
+                        "songid"
+                    )
                 )
 
 
                 event.stop_event()
 
-                return
+
+        except Exception as e:
+
+
+            self.log.error(
+                f"音乐卡片插件异常: {e}"
+            )
