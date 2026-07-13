@@ -15,8 +15,10 @@ from .qqmusic import parse_qq_music
 )
 class MusicCardPlugin(Star):
 
+
     def __init__(self, context):
         super().__init__(context)
+
 
 
     async def send_music(
@@ -42,6 +44,7 @@ class MusicCardPlugin(Star):
             )
 
 
+
     # =====================
     # 网易云
     # =====================
@@ -62,10 +65,12 @@ class MusicCardPlugin(Star):
             }
         ]
 
+
         await self.send_music(
             event,
             message
         )
+
 
 
     # =====================
@@ -80,60 +85,12 @@ class MusicCardPlugin(Star):
     ):
 
 
-        if songmid:
+        # QQ音乐 OneBot原生音乐消息
+        # 使用songid兼容性最高
 
-            jump_url = (
-                "https://y.qq.com/n/ryqq/songDetail/"
-                + songmid
-            )
+        if not songid:
 
-        elif songid:
-
-            jump_url = (
-                "https://i.y.qq.com/v8/playsong.html?"
-                "songid="
-                + songid
-                + "&songtype=0"
-            )
-
-        else:
             return
-
-
-
-        # QQ音乐新版JSON卡片
-
-        card = {
-
-            "app": "com.tencent.qqmusic",
-
-            "view": "music",
-
-            "ver": "0.0.0.0",
-
-            "prompt": "[QQ音乐分享]",
-
-            "meta": {
-
-                "music": {
-
-                    "appid": "100497308",
-
-                    "title": "QQ音乐",
-
-                    "desc": "QQ音乐歌曲",
-
-                    "jumpUrl": jump_url,
-
-                    "musicUrl": jump_url,
-
-                    "preview": jump_url
-
-                }
-
-            }
-
-        }
 
 
 
@@ -141,20 +98,20 @@ class MusicCardPlugin(Star):
 
             {
 
-                "type": "json",
+                "type": "music",
 
                 "data": {
 
-                    "data": json.dumps(
-                        card,
-                        ensure_ascii=False
-                    )
+                    "type": "qq",
+
+                    "id": songid
 
                 }
 
             }
 
         ]
+
 
 
         await self.send_music(
@@ -164,10 +121,10 @@ class MusicCardPlugin(Star):
 
 
 
+
     # =====================
     # 消息监听
     # =====================
-
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -197,6 +154,7 @@ class MusicCardPlugin(Star):
 
             if result:
 
+
                 await self.send_163(
                     event,
                     result.group(1)
@@ -209,15 +167,23 @@ class MusicCardPlugin(Star):
 
 
 
+
         # -----------------
         # QQ音乐
         # -----------------
 
-
         if (
+
             "y.qq.com" in text
+
             or
+
             "c6.y.qq.com" in text
+
+            or
+
+            "i.y.qq.com" in text
+
         ):
 
 
@@ -226,9 +192,13 @@ class MusicCardPlugin(Star):
 
 
             if (
+
                 qq.get("songid")
+
                 or
+
                 qq.get("songmid")
+
             ):
 
 
