@@ -1,9 +1,8 @@
 import re
-import json
-import httpx
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
+
 from .qqmusic import parse_qq_music
 
 
@@ -12,12 +11,13 @@ from .qqmusic import parse_qq_music
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.5"
+    "0.1.6"
 )
 class MusicCardPlugin(Star):
 
 
     def __init__(self, context):
+
         super().__init__(context)
 
 
@@ -65,10 +65,15 @@ class MusicCardPlugin(Star):
 
             {
                 "type": "music",
+
                 "data": {
+
                     "type": "163",
+
                     "id": song_id
+
                 }
+
             }
 
         ]
@@ -82,51 +87,7 @@ class MusicCardPlugin(Star):
 
 
     # =========================
-    # songid 转 songmid
-    # =========================
-
-    async def get_songmid(
-        self,
-        songid
-    ):
-
-        try:
-
-            url = (
-                "https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg"
-                f"?songid={songid}"
-            )
-
-
-            async with httpx.AsyncClient(
-                headers={
-                    "User-Agent":
-                    "Mozilla/5.0"
-                },
-                timeout=10
-            ) as client:
-
-
-                r = await client.get(url)
-
-
-                data = r.json()
-
-
-                mid = data["data"][0]["mid"]
-
-
-                return mid
-
-
-        except Exception:
-
-            return None
-
-
-
-    # =========================
-    # QQ音乐卡片
+    # QQ音乐
     # =========================
 
     async def send_qq(
@@ -137,68 +98,23 @@ class MusicCardPlugin(Star):
     ):
 
 
-        # 没有songmid，用songid查询
-
-        if not songmid and songid:
-
-            songmid = await self.get_songmid(
-                songid
-            )
+        music_id = None
 
 
-        if not songmid:
+        if songid:
+
+            music_id = songid
+
+
+        elif songmid:
+
+            music_id = songmid
+
+
+
+        if not music_id:
 
             return
-
-
-
-        jump_url = (
-            "https://y.qq.com/n/ryqq/songDetail/"
-            f"{songmid}"
-        )
-
-
-        card = {
-
-
-            "app": "com.tencent.qqmusic",
-
-
-            "view": "song",
-
-
-            "ver": "0.0.0.1",
-
-
-            "prompt": "[分享]QQ音乐",
-
-
-            "meta": {
-
-
-                "music": {
-
-
-                    "appid": "100497308",
-
-
-                    "songmid": songmid,
-
-
-                    "jumpUrl": jump_url,
-
-
-                    "preview": "",
-
-
-                    "title": "QQ音乐歌曲"
-
-
-                }
-
-            }
-
-        }
 
 
 
@@ -206,14 +122,13 @@ class MusicCardPlugin(Star):
 
             {
 
-                "type": "json",
+                "type": "music",
 
                 "data": {
 
-                    "data": json.dumps(
-                        card,
-                        ensure_ascii=False
-                    )
+                    "type": "qq",
+
+                    "id": music_id
 
                 }
 
@@ -246,7 +161,9 @@ class MusicCardPlugin(Star):
 
 
 
+        # ----------------------
         # 网易云
+        # ----------------------
 
         if "music.163.com" in text:
 
@@ -258,6 +175,7 @@ class MusicCardPlugin(Star):
 
 
             if result:
+
 
                 await self.send_163(
                     event,
@@ -271,14 +189,17 @@ class MusicCardPlugin(Star):
 
 
 
+        # ----------------------
         # QQ音乐
-
+        # ----------------------
 
         if (
 
             "y.qq.com" in text
 
-            or "c6.y.qq.com" in text
+            or
+
+            "c6.y.qq.com" in text
 
         ):
 
@@ -288,11 +209,14 @@ class MusicCardPlugin(Star):
             )
 
 
+
             if (
 
                 qq["songid"]
 
-                or qq["songmid"]
+                or
+
+                qq["songmid"]
 
             ):
 
