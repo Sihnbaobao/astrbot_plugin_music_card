@@ -100,9 +100,8 @@ class MusicCardPlugin(Star):
 
                 song_id = match.group(1)
 
-                await self.send_music_card(
+                await self.send_qq_music(
                     event,
-                    "qq",
                     song_id
                 )
 
