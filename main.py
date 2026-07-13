@@ -14,12 +14,15 @@ class MusicCardPlugin(Star):
         super().__init__(context)
 
 
-    @filter.on_message()
+    @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
 
         msg = event.message_str
 
-        if "music.163.com" in msg or "y.qq.com" in msg:
+        if (
+            "music.163.com" in msg
+            or "y.qq.com" in msg
+        ):
             yield event.plain_result(
-                "检测到音乐链接"
+                "检测到音乐链接：" + msg
             )
