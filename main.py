@@ -21,46 +21,26 @@ class MusicCardPlugin(Star):
 
         msg = event.message_str
 
-        # 网易云音乐
         if "music.163.com" in msg:
 
             match = re.search(r"id=(\d+)", msg)
 
             if match:
+
                 song_id = match.group(1)
 
-                await event.send(
-                    {
-                        "type": "music",
-                        "data": {
-                            "type": "163",
-                            "id": song_id
+                await event.bot.api.call_action(
+                    "send_private_msg",
+                    user_id=event.get_sender_id(),
+                    message=[
+                        {
+                            "type": "music",
+                            "data": {
+                                "type": "163",
+                                "id": song_id
+                            }
                         }
-                    }
-                )
-
-                return
-
-
-        # QQ音乐
-        if "y.qq.com" in msg:
-
-            match = re.search(
-                r"songDetail/([A-Za-z0-9]+)",
-                msg
-            )
-
-            if match:
-                song_id = match.group(1)
-
-                await event.send(
-                    {
-                        "type": "music",
-                        "data": {
-                            "type": "qq",
-                            "id": song_id
-                        }
-                    }
+                    ]
                 )
 
                 return
