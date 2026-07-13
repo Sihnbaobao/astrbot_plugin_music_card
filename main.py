@@ -18,26 +18,39 @@ class MusicCardPlugin(Star):
     def __init__(self, context):
         super().__init__(context)
 
-    async def send_music(self, event, message):
+
+    async def send_music(
+        self,
+        event,
+        message
+    ):
 
         if event.message_obj.group_id:
+
             await event.bot.api.call_action(
                 "send_group_msg",
                 group_id=event.message_obj.group_id,
                 message=message
             )
+
         else:
+
             await event.bot.api.call_action(
                 "send_private_msg",
                 user_id=event.get_sender_id(),
                 message=message
             )
 
+
     # =====================
     # 网易云
     # =====================
 
-    async def send_163(self, event, song_id):
+    async def send_163(
+        self,
+        event,
+        song_id
+    ):
 
         message = [
             {
@@ -54,6 +67,7 @@ class MusicCardPlugin(Star):
             message
         )
 
+
     # =====================
     # QQ音乐
     # =====================
@@ -64,6 +78,7 @@ class MusicCardPlugin(Star):
         songid=None,
         songmid=None
     ):
+
 
         if songmid:
 
@@ -85,34 +100,60 @@ class MusicCardPlugin(Star):
             return
 
 
+
+        # QQ音乐新版JSON卡片
+
         card = {
+
             "app": "com.tencent.qqmusic",
+
             "view": "music",
+
             "ver": "0.0.0.0",
-            "prompt": "[分享]QQ音乐",
+
+            "prompt": "[QQ音乐分享]",
+
             "meta": {
+
                 "music": {
+
                     "appid": "100497308",
-                    "title": "QQ音乐歌曲",
-                    "desc": "QQ音乐",
+
+                    "title": "QQ音乐",
+
+                    "desc": "QQ音乐歌曲",
+
                     "jumpUrl": jump_url,
-                    "preview": jump_url,
-                    "musicUrl": jump_url
+
+                    "musicUrl": jump_url,
+
+                    "preview": jump_url
+
                 }
+
             }
+
         }
 
 
+
         message = [
+
             {
+
                 "type": "json",
+
                 "data": {
+
                     "data": json.dumps(
                         card,
                         ensure_ascii=False
                     )
+
                 }
+
             }
+
         ]
 
 
@@ -122,9 +163,11 @@ class MusicCardPlugin(Star):
         )
 
 
+
     # =====================
     # 消息监听
     # =====================
+
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -134,15 +177,23 @@ class MusicCardPlugin(Star):
         event: AstrMessageEvent
     ):
 
+
         text = event.message_str
 
 
+
+        # -----------------
+        # 网易云
+        # -----------------
+
         if "music.163.com" in text:
+
 
             result = re.search(
                 r"id=(\d+)",
                 text
             )
+
 
             if result:
 
@@ -151,9 +202,16 @@ class MusicCardPlugin(Star):
                     result.group(1)
                 )
 
+
                 event.stop_event()
 
                 return
+
+
+
+        # -----------------
+        # QQ音乐
+        # -----------------
 
 
         if (
@@ -162,7 +220,10 @@ class MusicCardPlugin(Star):
             "c6.y.qq.com" in text
         ):
 
+
             qq = await parse_qq_music(text)
+
+
 
             if (
                 qq.get("songid")
@@ -170,11 +231,17 @@ class MusicCardPlugin(Star):
                 qq.get("songmid")
             ):
 
+
                 await self.send_qq(
+
                     event,
+
                     songid=qq.get("songid"),
+
                     songmid=qq.get("songmid")
+
                 )
+
 
                 event.stop_event()
 
