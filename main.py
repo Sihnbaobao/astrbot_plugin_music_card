@@ -9,7 +9,7 @@ from astrbot.api.star import Star, register
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.2"
+    "0.1.3"
 )
 class MusicCardPlugin(Star):
 
@@ -17,11 +17,17 @@ class MusicCardPlugin(Star):
         super().__init__(context)
 
 
+    # =========================
+    # 发送消息
+    # =========================
+
     async def send_music(
         self,
         event,
         message
     ):
+
+        # 群聊
 
         if event.message_obj.group_id:
 
@@ -31,6 +37,9 @@ class MusicCardPlugin(Star):
                 message=message
             )
 
+
+        # 私聊
+
         else:
 
             await event.bot.api.call_action(
@@ -38,6 +47,7 @@ class MusicCardPlugin(Star):
                 user_id=event.get_sender_id(),
                 message=message
             )
+
 
 
     # =========================
@@ -60,10 +70,12 @@ class MusicCardPlugin(Star):
             }
         ]
 
+
         await self.send_music(
             event,
             msg
         )
+
 
 
     # =========================
@@ -77,51 +89,69 @@ class MusicCardPlugin(Star):
     ):
 
 
+        jump_url = (
+            "https://i.y.qq.com/v8/playsong.html"
+            "?platform=11"
+            "&appshare=android_qq"
+            "&appversion=20040008"
+            f"&songmid={song_mid}"
+            "&type=0"
+            "&appsongtype=1"
+            "&_wv=1"
+            "&source=qq"
+            "&ADTAG=qfshare"
+        )
+
+
         card = {
-            "app": "com.tencent.qqmusic",
-            "view": "Share",
-            "ver": "1.0.0.1",
-            "prompt": "[QQ音乐]",
-            "config": {
-                "ctime": 0,
-                "forward": 1
-            },
+
+            "app": "com.tencent.music",
+
+            "view": "news",
+
+            "ver": "1.0.0.0",
+
+            "prompt": "[分享]QQ音乐",
+
             "meta": {
-                "music": {
 
-                    "title": "QQ音乐歌曲",
+                "news": {
 
-                    "desc": "QQ音乐",
+                    "title": "QQ音乐",
 
-                    "jumpUrl":
-                        f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
+                    "desc": "QQ音乐歌曲",
 
-                    "musicUrl":
-                        f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
+                    "jumpUrl": jump_url,
 
-                    "preview":
-                        "",
+                    "preview": "",
 
-                    "tag":
-                        "QQ音乐",
+                    "tag": "QQ音乐"
 
-                    "songId":
-                        song_mid
                 }
+
             }
+
         }
 
 
+
         msg = [
+
             {
+
                 "type": "json",
+
                 "data": {
+
                     "data": json.dumps(
                         card,
                         ensure_ascii=False
                     )
+
                 }
+
             }
+
         ]
 
 
@@ -150,7 +180,9 @@ class MusicCardPlugin(Star):
 
 
 
+        # -----------------
         # 网易云
+        # -----------------
 
         if "music.163.com" in text:
 
@@ -178,8 +210,9 @@ class MusicCardPlugin(Star):
 
 
 
+        # -----------------
         # QQ音乐
-
+        # -----------------
 
         if "y.qq.com" in text:
 
