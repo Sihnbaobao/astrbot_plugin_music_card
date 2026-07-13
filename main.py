@@ -1,6 +1,8 @@
 import re
 import json
 
+from astrbot.core import logger
+
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
 
@@ -15,11 +17,8 @@ from .qqmusic import parse_qq_music
 )
 class MusicCardPlugin(Star):
 
-
     def __init__(self, context):
         super().__init__(context)
-
-
 
     async def send_music(
         self,
@@ -43,8 +42,6 @@ class MusicCardPlugin(Star):
                 message=message
             )
 
-
-
     # =====================
     # 网易云
     # =====================
@@ -65,13 +62,10 @@ class MusicCardPlugin(Star):
             }
         ]
 
-
         await self.send_music(
             event,
             message
         )
-
-
 
     # =====================
     # QQ音乐
@@ -84,12 +78,8 @@ class MusicCardPlugin(Star):
         songmid=None
     ):
 
-
         if not songid:
-
             return
-
-
 
         jump_url = (
             "https://i.y.qq.com/v8/playsong.html?"
@@ -98,80 +88,42 @@ class MusicCardPlugin(Star):
             + "&songtype=0"
         )
 
-
-
-        # QQ音乐分享JSON
-
         card = {
-
             "app": "com.tencent.music",
-
             "desc": "QQ音乐",
-
             "view": "music",
-
             "ver": "0.0.0.0",
-
             "prompt": "[分享] QQ音乐",
-
             "meta": {
-
                 "music": {
-
                     "title": "QQ音乐歌曲",
-
                     "desc": "QQ音乐",
-
                     "jumpUrl": jump_url,
-
                     "musicUrl": jump_url,
-
                     "preview": jump_url
-
                 }
-
             }
-
         }
 
-
-
         message = [
-
             {
-
                 "type": "json",
-
                 "data": {
-
                     "data": json.dumps(
-
                         card,
-
                         ensure_ascii=False
-
                     )
-
                 }
-
             }
-
         ]
-
-
 
         await self.send_music(
             event,
             message
         )
-
-
-
-
     # =====================
     # 消息监听
     # =====================
-
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -181,27 +133,40 @@ class MusicCardPlugin(Star):
         event: AstrMessageEvent
     ):
 
-import json
-
-logger = self.context.logger
-
-logger.info(f"消息组件: {event.message_obj.message}")
-
-for comp in event.message_obj.message:
-    logger.info(f"组件类型: {type(comp)}")
-    logger.info(repr(comp))
-
-    if hasattr(comp, "__dict__"):
-        logger.info(comp.__dict__)
-
-    if hasattr(comp, "data"):
-        try:
-            logger.info(json.dumps(comp.data, ensure_ascii=False, indent=2))
-        except Exception:
-            logger.info(str(comp.data))
         text = event.message_str
 
+        # =====================
+        # 调试：打印收到的消息组件
+        # =====================
 
+        logger.info("========== 收到消息组件 ==========")
+
+        try:
+
+            logger.info(f"message_str: {text}")
+
+            for comp in event.message_obj.message:
+
+                logger.info(f"组件类型: {type(comp)}")
+
+                logger.info(f"repr: {repr(comp)}")
+
+                if hasattr(comp, "__dict__"):
+
+                    logger.info(
+                        json.dumps(
+                            comp.__dict__,
+                            ensure_ascii=False,
+                            indent=4,
+                            default=str
+                        )
+                    )
+
+        except Exception:
+
+            logger.exception("打印消息组件失败")
+
+        logger.info("========== 结束 ==========")
 
         # -----------------
         # 网易云
@@ -209,73 +174,51 @@ for comp in event.message_obj.message:
 
         if "music.163.com" in text:
 
-
             result = re.search(
                 r"id=(\d+)",
                 text
             )
 
-
             if result:
-
 
                 await self.send_163(
                     event,
                     result.group(1)
                 )
 
-
                 event.stop_event()
 
                 return
-
-
-
 
         # -----------------
         # QQ音乐
         # -----------------
 
         if (
-
             "y.qq.com" in text
-
             or
-
             "c6.y.qq.com" in text
-
             or
-
             "i.y.qq.com" in text
-
         ):
-
 
             qq = await parse_qq_music(text)
 
-
+            logger.info(
+                f"QQ解析结果: {json.dumps(qq, ensure_ascii=False)}"
+            )
 
             if (
-
                 qq.get("songid")
-
                 or
-
                 qq.get("songmid")
-
             ):
 
-
                 await self.send_qq(
-
                     event,
-
                     songid=qq.get("songid"),
-
                     songmid=qq.get("songmid")
-
                 )
-
 
                 event.stop_event()
 
