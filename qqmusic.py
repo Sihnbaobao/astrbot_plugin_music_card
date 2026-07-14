@@ -1,6 +1,7 @@
 import re
 import httpx
 import os
+from urllib.parse import urlparse
 
 
 print(
@@ -25,6 +26,41 @@ async def parse_qq_music(text):
         "进入 parse_qq_music:",
         text
     )
+
+
+    # ======================
+    # QQ短链接展开
+    # ======================
+
+    if "c6.y.qq.com" in text:
+
+        try:
+
+            async with httpx.AsyncClient(
+                follow_redirects=True,
+                timeout=10
+            ) as client:
+
+                r = await client.get(text)
+
+                text = str(r.url)
+
+
+                print(
+                    "QQ短链展开:",
+                    text
+                )
+
+
+        except Exception as e:
+
+
+            print(
+                "QQ短链展开失败:",
+                repr(e)
+            )
+
+            return None
 
 
     songmid = None
