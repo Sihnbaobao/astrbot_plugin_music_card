@@ -57,6 +57,7 @@ from astrbot.api.star import (
 )
 
 from .qqmusic import parse_qq_music
+from .netease import search_netease
 
 
 
