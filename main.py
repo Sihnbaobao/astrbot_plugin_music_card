@@ -386,10 +386,6 @@ class MusicCardPlugin(Star):
 
                 qq.get("songmid")
 
-                or
-
-                qq.get("songid")
-
             ):
 
 
