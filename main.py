@@ -180,7 +180,7 @@ class MusicCardPlugin(Star):
 
                     "image":
                     qq.get(
-                        "cover",
+                        "pic",
                         ""
                     ),
 
