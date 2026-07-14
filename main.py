@@ -365,6 +365,16 @@ class MusicCardPlugin(Star):
             )
 
 
+            if not qq:
+
+                logger.warning(
+                    "QQ音乐解析失败，返回为空"
+                )
+
+                event.stop_event()
+
+                return
+
 
             # 有歌曲信息才发送
 
