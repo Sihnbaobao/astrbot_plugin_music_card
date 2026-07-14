@@ -81,38 +81,12 @@ class MusicCardPlugin(Star):
         if not songid:
             return
 
-        jump_url = (
-            "https://i.y.qq.com/v8/playsong.html?"
-            "songid="
-            + songid
-            + "&songtype=0"
-        )
-
-        card = {
-            "app": "com.tencent.music",
-            "desc": "QQ音乐",
-            "view": "music",
-            "ver": "0.0.0.0",
-            "prompt": "[分享] QQ音乐",
-            "meta": {
-                "music": {
-                    "title": "QQ音乐歌曲",
-                    "desc": "QQ音乐",
-                    "jumpUrl": jump_url,
-                    "musicUrl": jump_url,
-                    "preview": jump_url
-                }
-            }
-        }
-
         message = [
             {
-                "type": "json",
+                "type": "music",
                 "data": {
-                    "data": json.dumps(
-                        card,
-                        ensure_ascii=False
-                    )
+                    "type": "qq",
+                    "id": str(songid)
                 }
             }
         ]
