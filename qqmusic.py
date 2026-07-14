@@ -21,6 +21,34 @@ print(
 async def parse_qq_music(text):
 
 
+    # QQ短链展开
+    if "c6.y.qq.com/base/fcgi-bin/u" in text:
+
+        try:
+
+            async with httpx.AsyncClient(
+                timeout=10,
+                follow_redirects=True
+            ) as client:
+
+                r = await client.get(text)
+
+                text = str(r.url)
+
+                print(
+                    "QQ短链展开:",
+                    text
+                )
+
+        except Exception as e:
+
+            print(
+                "QQ短链展开失败:",
+                e
+            )
+
+            return None
+
     print(
         "进入 parse_qq_music:",
         text
