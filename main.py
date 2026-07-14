@@ -1,7 +1,50 @@
 import re
 import json
+import os
+import importlib
 
 from astrbot.core import logger
+
+
+# ==========================
+# 调试：确认实际加载文件
+# ==========================
+
+print(
+    "========== music_card 加载检查 =========="
+)
+
+print(
+    "main.py路径:",
+    os.path.abspath(__file__)
+)
+
+
+try:
+
+    qqmusic_module = importlib.import_module(
+        ".qqmusic",
+        __package__
+    )
+
+    print(
+        "qqmusic.py路径:",
+        os.path.abspath(
+            qqmusic_module.__file__
+        )
+    )
+
+except Exception as e:
+
+    print(
+        "qqmusic路径检测失败:",
+        e
+    )
+
+
+print(
+    "========================================"
+)
 
 from astrbot.api.event import (
     filter,
