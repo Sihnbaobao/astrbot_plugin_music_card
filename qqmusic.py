@@ -9,32 +9,71 @@ async def parse_qq_music(text):
 
 
     # =========================
-    # QQ短链展开
+    # QQ短链解析
     # =========================
 
     if "c6.y.qq.com/base/fcgi-bin/u" in text:
 
+
         try:
+
 
             async with httpx.AsyncClient(
                 timeout=10,
-                follow_redirects=True
+                headers={
+                    "User-Agent":
+                    "Mozilla/5.0"
+                }
             ) as client:
 
-                r = await client.get(text)
 
-                text = str(r.url)
-
-                print(
-                    "QQ短链展开:",
+                r = await client.get(
                     text
                 )
 
 
+                html = r.text
+
+
+                print(
+                    "QQ短链返回:",
+                    html[:300]
+                )
+
+
+                # 匹配真实歌曲链接
+
+                m = re.search(
+                    r"https://i\.y\.qq\.com/v8/playsong\.html\?[^\"']+",
+                    html
+                )
+
+
+                if m:
+
+                    text = m.group(0)
+
+                    print(
+                        "QQ短链解析:",
+                        text
+                    )
+
+
+                else:
+
+                    print(
+                        "没有找到歌曲地址"
+                    )
+
+                    return None
+
+
+
         except Exception as e:
 
+
             print(
-                "QQ短链展开失败:",
+                "QQ短链解析失败:",
                 e
             )
 
