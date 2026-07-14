@@ -323,7 +323,7 @@ class MusicCardPlugin(Star):
 
 
         # ==========================
-        # 网易云原链接
+        # 网易云链接处理
         # ==========================
 
 
@@ -334,21 +334,49 @@ class MusicCardPlugin(Star):
         ):
 
 
-            if "163cn.tv" in text:
+            # 从文字中提取真正URL
 
-                text = await expand_netease_url(text)
+            url_match = re.search(
+                r"https?://[^\s]+",
+                text
+            )
 
-                logger.info(
-                    f"网易云短链展开:{text}"
-                )
 
+            if url_match:
+
+                netease_url = url_match.group(0)
+
+
+            else:
+
+                netease_url = text
+
+
+
+            logger.info(
+                f"网易云真实链接:{netease_url}"
+            )
+
+
+
+            # 展开短链
+
+            netease_url = await expand_netease_url(
+                netease_url
+            )
+
+
+            logger.info(
+                f"网易云展开:{netease_url}"
+            )
+
+
+
+            # 提取歌曲ID
 
             m = re.search(
-
                 r"id=(\d+)",
-
-                text
-
+                netease_url
             )
 
 
