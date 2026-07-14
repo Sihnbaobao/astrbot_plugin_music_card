@@ -71,30 +71,116 @@ class MusicCardPlugin(Star):
     # QQ音乐
     # =====================
 
-    async def send_qq(
-        self,
-        event,
-        songid=None,
-        songmid=None
-    ):
+async def send_qq(
+    self,
+    event,
+    songid=None,
+    songmid=None,
+):
 
-        if not songid:
-            return
+    if songmid:
 
-        message = [
-            {
-                "type": "music",
-                "data": {
-                    "type": "qq",
-                    "id": str(songid)
-                }
-            }
-        ]
-
-        await self.send_music(
-            event,
-            message
+        jump_url = (
+            "https://i.y.qq.com/v8/playsong.html?"
+            "songmid="
+            + songmid
+            + "&type=0"
         )
+
+    elif songid:
+
+        jump_url = (
+            "https://i.y.qq.com/v8/playsong.html?"
+            "songid="
+            + songid
+        )
+
+    else:
+        return
+
+
+
+    card = {
+
+        "app": "com.tencent.tuwen.lua",
+
+        "bizsrc": "qqconnect.sdkshare",
+
+        "config": {
+
+            "ctime": 0,
+
+            "forward": 1,
+
+            "type": "normal"
+
+        },
+
+
+        "extra": {
+
+            "app_type": 1,
+
+            "appid": 100497308
+
+        },
+
+
+        "meta": {
+
+            "news": {
+
+                "app_type": 1,
+
+                "appid": 100497308,
+
+                "desc": "QQ音乐",
+
+                "jumpUrl": jump_url,
+
+                "tag": "QQ音乐",
+
+                "title": "QQ音乐歌曲"
+
+            }
+
+        },
+
+
+        "prompt": "[分享]QQ音乐",
+
+        "ver": "0.0.0.1",
+
+        "view": "news"
+
+    }
+
+
+
+    message = [
+
+        {
+
+            "type": "json",
+
+            "data": {
+
+                "data": json.dumps(
+                    card,
+                    ensure_ascii=False
+                )
+
+            }
+
+        }
+
+    ]
+
+
+    await self.send_music(
+        event,
+        message
+    )
     # =====================
     # 消息监听
     # =====================
