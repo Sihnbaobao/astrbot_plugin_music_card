@@ -216,7 +216,7 @@ class MusicCardPlugin(Star):
 
                     "audio":
                     qq.get(
-                        "url",
+                        "audio",
                         ""
                     ),
 
