@@ -5,6 +5,11 @@ import httpx
 
 async def parse_qq_music(text):
 
+    print(
+        "进入parse_qq_music:",
+        text
+    )
+
     songmid = None
     songid = None
 
