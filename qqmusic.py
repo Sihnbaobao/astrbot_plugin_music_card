@@ -2,91 +2,25 @@ import re
 import httpx
 
 
+
 async def parse_qq_music(text):
-
-    print("================")
-    print("进入QQ解析")
-    print(text)
-    print("================")
-
-
-    result = {
-
-        "title": None,
-        "singer": None,
-        "pic": None,
-        "url": None,
-        "audio": None,
-        "songmid": None
-
-    }
-
-
-
-    # =====================
-    # 处理QQ短链
-    # =====================
-
-
-    if "c6.y.qq.com" in text:
-
-
-        try:
-
-
-            async with httpx.AsyncClient(
-
-                timeout=10,
-
-                follow_redirects=True,
-
-                headers={
-
-                    "User-Agent":
-                    "Mozilla/5.0"
-
-                }
-
-            ) as client:
-
-
-                r = await client.get(text)
-
-
-                text = str(r.url)
-
-
-                print(
-                    "短链展开:",
-                    text
-                )
-
-
-        except Exception as e:
-
-
-            print(
-                "短链展开失败:",
-                e
-            )
-
 
 
     songmid = None
 
 
+    songid = None
+
+
 
     # =====================
-    # 提取songmid
+    # 提取参数
     # =====================
 
 
     mid = re.search(
-
         r"songmid=([A-Za-z0-9]+)",
-
         text
-
     )
 
 
@@ -96,41 +30,169 @@ async def parse_qq_music(text):
 
 
 
+    sid = re.search(
+        r"songid=(\d+)",
+        text
+    )
+
+
+    if sid:
+
+        songid = sid.group(1)
+
+
+
     print(
-        "发现songmid:",
+        "解析参数:",
+        songid,
         songmid
     )
 
 
 
-    if not songmid:
+    async with httpx.AsyncClient(
 
+        timeout=10,
 
-        print(
-            "没有songmid，无法继续"
-        )
+        headers={
 
-        return result
+            "User-Agent":
+            "Mozilla/5.0"
 
+        }
 
-
-    # =====================
-    # QQ详情API
-    # =====================
-
-
-    try:
-
-
-        async with httpx.AsyncClient(
-
-            timeout=10
-
-        ) as client:
+    ) as client:
 
 
 
-            api = (
+        # =====================
+        # 没有songmid
+        # 用songid搜索
+        # =====================
+
+
+        if not songmid and songid:
+
+
+            try:
+
+
+                api = (
+                    "https://c.y.qq.com/soso/fcgi-bin/"
+                    "client_search_cp"
+                )
+
+
+
+                params={
+
+                    "ct":24,
+
+                    "qqmusic_ver":1298,
+
+                    "new_json":1,
+
+                    "remoteplace":"txt.yqq.song",
+
+                    "t":0,
+
+                    "aggr":1,
+
+                    "cr":1,
+
+                    "catZhida":1,
+
+                    "lossless":0,
+
+                    "flag_qc":0,
+
+                    "p":1,
+
+                    "n":10,
+
+                    "w":songid
+
+                }
+
+
+
+                r = await client.get(
+
+                    api,
+
+                    params=params
+
+                )
+
+
+                j=r.json()
+
+
+
+                songs=(
+
+                    j
+
+                    ["data"]
+
+                    ["song"]
+
+                    ["list"]
+
+                )
+
+
+
+                if songs:
+
+
+                    songmid=songs[0]["mid"]
+
+
+                    print(
+
+                        "搜索得到songmid:",
+
+                        songmid
+
+                    )
+
+
+
+            except Exception as e:
+
+
+                print(
+
+                    "songid搜索失败:",
+
+                    e
+
+                )
+
+
+
+
+
+        if not songmid:
+
+
+            return None
+
+
+
+
+
+        # =====================
+        # 获取歌曲详情
+        # =====================
+
+
+
+        try:
+
+
+            api=(
 
                 "https://u.y.qq.com/cgi-bin/musicu.fcg"
 
@@ -138,10 +200,11 @@ async def parse_qq_music(text):
 
 
 
-            data = {
+            data={
 
 
                 "comm":{
+
 
                     "ct":24,
 
@@ -173,13 +236,15 @@ async def parse_qq_music(text):
 
                     }
 
+
                 }
+
 
             }
 
 
 
-            r = await client.post(
+            r=await client.post(
 
                 api,
 
@@ -188,11 +253,11 @@ async def parse_qq_music(text):
             )
 
 
-            j = r.json()
+            j=r.json()
 
 
 
-            info = (
+            info=(
 
                 j
 
@@ -206,11 +271,11 @@ async def parse_qq_music(text):
 
 
 
-            result["title"] = info["name"]
+            title=info["name"]
 
 
 
-            result["singer"] = ",".join(
+            singer=",".join(
 
                 [
 
@@ -224,10 +289,9 @@ async def parse_qq_music(text):
 
 
 
-            result["pic"] = (
+            pic=(
 
                 "https://y.gtimg.cn/music/photo_new/"
-
                 "T002R300x300M000/"
 
                 +
@@ -242,7 +306,7 @@ async def parse_qq_music(text):
 
 
 
-            result["url"] = (
+            url=(
 
                 "https://i.y.qq.com/v8/playsong.html?"
 
@@ -255,27 +319,60 @@ async def parse_qq_music(text):
             )
 
 
-            result["audio"] = result["url"]
+
+            return {
 
 
-            result["songmid"] = songmid
+                "title":
+
+                title,
+
+
+                "singer":
+
+                singer,
+
+
+                "pic":
+
+                pic,
+
+
+                "cover":
+
+                pic,
+
+
+                "url":
+
+                url,
+
+
+                "audio":
+
+                url,
+
+
+                "songmid":
+
+                songmid
+
+
+            }
 
 
 
-            return result
+
+        except Exception as e:
 
 
+            print(
 
-    except Exception as e:
+                "歌曲详情失败:",
 
+                e
 
-        print(
-
-            "QQ详情失败:",
-
-            e
-
-        )
+            )
 
 
-        return result
+            return None
