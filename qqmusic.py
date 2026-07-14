@@ -1,141 +1,265 @@
 import re
-print("========== QQMUSIC新版加载 ==========")
-import httpx
+import requests
 
 
-async def parse_qq_music(text):
+def expand_qq_url(url):
+    """
+    QQ音乐短链接展开
+    c6.y.qq.com/base/fcgi-bin/u?__=xxxx
+    """
 
-    print(
-        "进入parse_qq_music:",
-        text
-    )
+    if "c6.y.qq.com" not in url:
+        return url
 
-    songmid = None
-    songid = None
+    try:
 
-
-    # =========================
-    # QQ短链解析
-    # =========================
-
-    if "c6.y.qq.com/base/fcgi-bin/u" in text:
-
-
-        try:
+        headers = {
+            "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
 
 
-            async with httpx.AsyncClient(
-                timeout=10,
-                headers={
-                    "User-Agent":
-                    "Mozilla/5.0"
-                }
-            ) as client:
-
-
-                r = await client.get(
-                    text
-                )
-
-
-                html = r.text
-
-
-                print(
-                    "QQ短链返回:",
-                    html[:300]
-                )
-
-
-                # 匹配真实歌曲链接
-
-                m = re.search(
-                    r"https://i\.y\.qq\.com/v8/playsong\.html\?[^\"']+",
-                    html
-                )
-
-
-                if m:
-
-                    text = m.group(0)
-
-                    print(
-                        "QQ短链解析:",
-                        text
-                    )
-
-
-                else:
-
-                    print(
-                        "没有找到歌曲地址"
-                    )
-
-                    return None
-
-
-
-        except Exception as e:
-
-
-            print(
-                "QQ短链解析失败:",
-                e
-            )
-
-            return None
-
-
-
-    # =========================
-    # 提取 songmid
-    # =========================
-
-    mid = re.search(
-        r"songmid=([A-Za-z0-9]+)",
-        text
-    )
-
-    if mid:
-
-        songmid = mid.group(1)
-
-
-
-    # =========================
-    # 提取 songid
-    # =========================
-
-    sid = re.search(
-        r"songid=(\d+)",
-        text
-    )
-
-    if sid:
-
-        songid = sid.group(1)
-
-
-
-    # =========================
-    # songid 转 songmid
-    # =========================
-
-    if not songmid and songid:
-
-
-        print(
-            "尝试songid转换:",
-            songid
+        r = requests.get(
+            url,
+            headers=headers,
+            allow_redirects=False,
+            timeout=5
         )
 
 
-        try:
+        location = r.headers.get("Location")
 
 
-            async with httpx.AsyncClient(
-                timeout=10
-            ) as client:
+        if location:
+            print(
+                "QQ短链展开:",
+                location
+            )
+
+            return location
+
+
+    except Exception as e:
+
+        print(
+            "QQ短链展开失败:",
+            e
+        )
+
+
+    return url
+
+
+
+def get_song_info(songmid):
+
+    """
+    获取QQ歌曲详细信息
+    """
+
+    try:
+
+        api = (
+            "https://u.y.qq.com/cgi-bin/musicu.fcg"
+        )
+
+
+        payload = {
+
+            "comm": {
+                "ct":24,
+                "cv":0
+            },
+
+
+            "songinfo": {
+
+                "module":
+                "music.pf_song_detail_svr",
+
+
+                "method":
+                "get_song_detail_yqq",
+
+
+                "param": {
+
+                    "song_mid":
+                    songmid
+
+                }
+
+            }
+
+        }
+
+
+
+        r = requests.post(
+            api,
+            json=payload,
+            timeout=5
+        )
+
+
+        data = r.json()
+
+
+        song = (
+            data
+            ["songinfo"]
+            ["data"]
+            ["track_info"]
+        )
+
+
+        title = song.get(
+            "title"
+        )
+
+
+        singers=[]
+
+
+        for s in song.get(
+            "singer",
+            []
+        ):
+
+            singers.append(
+                s["name"]
+            )
+
+
+        singer = " / ".join(
+            singers
+        )
+
+
+        album_mid = (
+            song
+            .get("album", {})
+            .get("mid")
+        )
+
+
+        pic = None
+
+
+        if album_mid:
+
+            pic = (
+                "https://y.gtimg.cn/music/photo_new/"
+                "T002R300x300M000/"
+                +
+                album_mid
+                +
+                ".jpg"
+            )
+
+
+
+        return {
+
+            "title":
+            title,
+
+
+            "singer":
+            singer,
+
+
+            "pic":
+            pic,
+
+
+            "cover":
+            pic
+
+        }
+
+
+    except Exception as e:
+
+        print(
+            "获取歌曲信息失败:",
+            e
+        )
+
+        return None
+
+
+
+
+def parse_qq_music(url):
+
+    """
+    QQ音乐解析入口
+    """
+
+
+    # ==========================
+    # 第一步 展开短链接
+    # ==========================
+
+    url = expand_qq_url(
+        url
+    )
+
+
+    print(
+        "最终解析地址:",
+        url
+    )
+
+
+
+    songmid = None
+
+
+
+    # ==========================
+    # 解析 songmid
+    # ==========================
+
+
+    m = re.search(
+        r"songmid=([A-Za-z0-9]+)",
+        url
+    )
+
+
+    if m:
+
+        songmid = m.group(1)
+
+
+
+    # ==========================
+    # songid数字
+    # ==========================
+
+    if not songmid:
+
+
+        m = re.search(
+            r"songid=(\d+)",
+            url
+        )
+
+
+        if m:
+
+            songid=m.group(1)
+
+
+            print(
+                "发现songid:",
+                songid
+            )
+
+
+            try:
 
 
                 api = (
@@ -143,41 +267,36 @@ async def parse_qq_music(text):
                 )
 
 
+                payload={
 
-                data = {
-
-
-                    "comm":{
-
-                        "ct":24,
-
-                        "cv":0
-
-                    },
-
-
-                    "songinfo":{
-
+                    "req_0":{
 
                         "module":
-
-                        "music.pf_song_detail_svr",
+                        "music.musicsearch.SearchCgiService",
 
 
                         "method":
-
-                        "get_song_detail_yqq",
+                        "DoSearchForQQMusicDesktop",
 
 
                         "param":{
 
+                            "query":
+                            songid,
 
-                            "song_id":
 
-                            int(songid)
+                            "search_type":
+                            100,
+
+
+                            "num_per_page":
+                            1,
+
+
+                            "page_num":
+                            1
 
                         }
-
 
                     }
 
@@ -185,42 +304,41 @@ async def parse_qq_music(text):
 
 
 
-                r = await client.post(
+                r=requests.post(
                     api,
-                    json=data
+                    json=payload,
+                    timeout=5
                 )
 
 
-                j = r.json()
+                j=r.json()
 
 
 
-                info = (
+                song=(
 
                     j
-                    .get("songinfo", {})
-                    .get("data", {})
-                    .get("track_info")
+                    ["req_0"]
+                    ["data"]
+                    ["body"]
+                    ["song"]
+                    ["list"][0]
 
                 )
 
 
 
-                if info:
-
-                    songmid = info.get(
-                        "mid"
-                    )
+                songmid=song["mid"]
 
 
+            except Exception as e:
 
-        except Exception as e:
 
+                print(
+                    "songid转换失败:",
+                    e
+                )
 
-            print(
-                "songid转songmid失败:",
-                e
-            )
 
 
 
@@ -231,218 +349,58 @@ async def parse_qq_music(text):
 
 
 
-    # =========================
-    # 获取歌曲详情
-    # =========================
+    info=get_song_info(
+        songmid
+    )
 
 
-    try:
 
-
-        async with httpx.AsyncClient(
-            timeout=10
-        ) as client:
-
-
-            api = (
-                "https://u.y.qq.com/cgi-bin/musicu.fcg"
-            )
-
-
-
-            data = {
-
-
-                "comm":{
-
-                    "ct":24,
-
-                    "cv":0
-
-                },
-
-
-                "songinfo":{
-
-
-                    "module":
-
-                    "music.pf_song_detail_svr",
-
-
-                    "method":
-
-                    "get_song_detail_yqq",
-
-
-                    "param":{
-
-
-                        "song_mid":
-
-                        songmid
-
-
-                    }
-
-
-                }
-
-
-            }
-
-
-
-            r = await client.post(
-                api,
-                json=data
-            )
-
-
-            j = r.json()
-
-
-
-            info = (
-
-                j
-                .get("songinfo", {})
-                .get("data", {})
-                .get("track_info")
-
-            )
-
-
-
-            if not info:
-
-                print(
-                    "没有获取歌曲详情"
-                )
-
-                return None
-
-
-
-            title = info.get(
-                "name",
-                ""
-            )
-
-
-
-            singer = ",".join(
-
-                [
-
-                    x.get(
-                        "name",
-                        ""
-                    )
-
-                    for x in info.get(
-                        "singer",
-                        []
-                    )
-
-                ]
-
-            )
-
-
-
-            album_mid = (
-
-                info
-                .get("album", {})
-                .get("mid")
-
-            )
-
-
-
-            pic = ""
-
-            if album_mid:
-
-
-                pic = (
-
-                    "https://y.gtimg.cn/music/photo_new/T002R300x300M000/"
-
-                    +
-
-                    album_mid
-
-                    +
-
-                    ".jpg"
-
-                )
-
-
-
-            url = (
-
-                "https://i.y.qq.com/v8/playsong.html?songmid="
-
-                +
-
-                songmid
-
-            )
-
-
-
-            return {
-
-
-                "title":
-
-                title,
-
-
-                "singer":
-
-                singer,
-
-
-                "pic":
-
-                pic,
-
-
-                "cover":
-
-                pic,
-
-
-                "url":
-
-                url,
-
-
-                "audio":
-
-                url,
-
-
-                "songmid":
-
-                songmid
-
-
-            }
-
-
-
-    except Exception as e:
-
-
-        print(
-            "QQ音乐解析失败:",
-            e
-        )
-
+    if not info:
 
         return None
+
+
+
+
+    result={
+
+        "title":
+        info["title"],
+
+
+        "singer":
+        info["singer"],
+
+
+        "pic":
+        info["pic"],
+
+
+        "cover":
+        info["cover"],
+
+
+        "songmid":
+        songmid,
+
+
+        "url":
+        (
+            "https://i.y.qq.com/v8/playsong.html?songmid="
+            +
+            songmid
+        ),
+
+
+        "audio":
+        (
+            "https://i.y.qq.com/v8/playsong.html?songmid="
+            +
+            songmid
+        )
+
+    }
+
+
+
+    return result
