@@ -37,26 +37,55 @@ async def parse_qq_music(text):
         try:
 
             async with httpx.AsyncClient(
-                follow_redirects=True,
-                timeout=10
+                timeout=10,
+                headers={
+                    "User-Agent":
+                    "Mozilla/5.0"
+                }
             ) as client:
 
-                r = await client.get(text)
 
-                text = str(r.url)
-
-
-                print(
-                    "QQ短链展开:",
+                r = await client.get(
                     text
                 )
 
 
+                print(
+                    "QQ短链返回:",
+                    r.text[:500]
+                )
+
+
+                m = re.search(
+                    r'(https?://[^"\']+playsong\.html[^"\']+)',
+                    r.text
+                )
+
+
+                if m:
+
+                    text = m.group(1)
+
+                    print(
+                        "QQ短链解析:",
+                        text
+                    )
+
+
+                else:
+
+                    print(
+                        "没有找到playsong链接"
+                    )
+
+                    return None
+
+
+
         except Exception as e:
 
-
             print(
-                "QQ短链展开失败:",
+                "QQ短链解析异常:",
                 repr(e)
             )
 
