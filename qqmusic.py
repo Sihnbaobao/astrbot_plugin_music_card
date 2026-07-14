@@ -32,6 +32,11 @@ async def parse_qq_music(text):
 
     if not songmid and songid:
 
+        print(
+            "尝试songid转换:",
+            songid
+        )
+
         try:
 
             async with httpx.AsyncClient(
