@@ -412,7 +412,7 @@ class MusicCardPlugin(Star):
             if not qq:
 
                 logger.warning(
-                    "QQ音乐解析失败，返回为空"
+                    "QQ音乐解析失败，尝试网易云"
                 )
 
                 event.stop_event()
