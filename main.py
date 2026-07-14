@@ -52,6 +52,47 @@ from astrbot.api.star import (
 
 from .qqmusic import parse_qq_music
 from .netease import search_netease
+import httpx
+
+
+async def expand_netease_url(url):
+
+
+    if "163cn.tv" not in url:
+
+        return url
+
+
+    try:
+
+        async with httpx.AsyncClient(
+
+            follow_redirects=True,
+
+            timeout=10
+
+        ) as client:
+
+
+            r = await client.get(
+                url
+            )
+
+
+            return str(
+                r.url
+            )
+
+
+    except Exception as e:
+
+
+        logger.warning(
+            f"网易云短链展开失败:{e}"
+        )
+
+
+        return url
 
 
 
@@ -286,7 +327,11 @@ class MusicCardPlugin(Star):
         # ==========================
 
 
-        if "music.163.com" in text:
+        if (
+            "music.163.com" in text
+            or
+            "163cn.tv" in text
+        ):
 
 
             m = re.search(
