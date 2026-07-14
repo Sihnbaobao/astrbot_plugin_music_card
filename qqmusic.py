@@ -1,4 +1,5 @@
 import re
+print("========== QQMUSIC新版加载 ==========")
 import httpx
 
 
