@@ -1,25 +1,24 @@
 import re
+import asyncio
 import requests
 
 
-def expand_qq_url(url):
-    """
-    QQ音乐短链接展开
-    c6.y.qq.com/base/fcgi-bin/u?__=xxxx
-    """
+
+def expand_qq_url_sync(url):
 
     if "c6.y.qq.com" not in url:
         return url
 
+
     try:
 
-        headers = {
+        headers={
             "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            "Mozilla/5.0"
         }
 
 
-        r = requests.get(
+        r=requests.get(
             url,
             headers=headers,
             allow_redirects=False,
@@ -27,10 +26,13 @@ def expand_qq_url(url):
         )
 
 
-        location = r.headers.get("Location")
+        location=r.headers.get(
+            "Location"
+        )
 
 
         if location:
+
             print(
                 "QQ短链展开:",
                 location
@@ -42,7 +44,7 @@ def expand_qq_url(url):
     except Exception as e:
 
         print(
-            "QQ短链展开失败:",
+            "短链展开失败:",
             e
         )
 
@@ -51,122 +53,85 @@ def expand_qq_url(url):
 
 
 
-def get_song_info(songmid):
 
-    """
-    获取QQ歌曲详细信息
-    """
+def get_song_info_sync(songmid):
+
 
     try:
 
-        api = (
-            "https://u.y.qq.com/cgi-bin/musicu.fcg"
-        )
+        api="https://u.y.qq.com/cgi-bin/musicu.fcg"
 
 
-        payload = {
+        payload={
 
-            "comm": {
+            "comm":{
                 "ct":24,
                 "cv":0
             },
 
 
-            "songinfo": {
+            "songinfo":{
 
                 "module":
                 "music.pf_song_detail_svr",
 
-
                 "method":
                 "get_song_detail_yqq",
 
-
-                "param": {
+                "param":{
 
                     "song_mid":
                     songmid
 
                 }
-
             }
-
         }
 
 
-
-        r = requests.post(
+        r=requests.post(
             api,
             json=payload,
             timeout=5
         )
 
 
-        data = r.json()
+        j=r.json()
 
 
-        song = (
-            data
-            ["songinfo"]
-            ["data"]
-            ["track_info"]
-        )
-
-
-        title = song.get(
-            "title"
-        )
+        track=j["songinfo"]["data"]["track_info"]
 
 
         singers=[]
 
 
-        for s in song.get(
-            "singer",
-            []
-        ):
+        for s in track["singer"]:
 
             singers.append(
                 s["name"]
             )
 
 
-        singer = " / ".join(
-            singers
+        album_mid=track["album"]["mid"]
+
+
+        pic=(
+            "https://y.gtimg.cn/music/photo_new/"
+            "T002R300x300M000/"
+            +
+            album_mid
+            +
+            ".jpg"
         )
-
-
-        album_mid = (
-            song
-            .get("album", {})
-            .get("mid")
-        )
-
-
-        pic = None
-
-
-        if album_mid:
-
-            pic = (
-                "https://y.gtimg.cn/music/photo_new/"
-                "T002R300x300M000/"
-                +
-                album_mid
-                +
-                ".jpg"
-            )
-
 
 
         return {
 
             "title":
-            title,
+            track["title"],
 
 
             "singer":
-            singer,
+            "/".join(singers),
 
 
             "pic":
@@ -182,7 +147,7 @@ def get_song_info(songmid):
     except Exception as e:
 
         print(
-            "获取歌曲信息失败:",
+            "歌曲信息错误:",
             e
         )
 
@@ -191,39 +156,29 @@ def get_song_info(songmid):
 
 
 
-def parse_qq_music(url):
 
-    """
-    QQ音乐解析入口
-    """
+async def parse_qq_music(url):
 
 
-    # ==========================
-    # 第一步 展开短链接
-    # ==========================
-
-    url = expand_qq_url(
+    # 展开短链
+    url = await asyncio.to_thread(
+        expand_qq_url_sync,
         url
     )
 
 
     print(
-        "最终解析地址:",
+        "最终QQ地址:",
         url
     )
 
 
 
-    songmid = None
+    songmid=None
 
 
 
-    # ==========================
-    # 解析 songmid
-    # ==========================
-
-
-    m = re.search(
+    m=re.search(
         r"songmid=([A-Za-z0-9]+)",
         url
     )
@@ -231,24 +186,21 @@ def parse_qq_music(url):
 
     if m:
 
-        songmid = m.group(1)
+        songmid=m.group(1)
 
 
-
-    # ==========================
-    # songid数字
-    # ==========================
 
     if not songmid:
 
 
-        m = re.search(
+        m=re.search(
             r"songid=(\d+)",
             url
         )
 
 
         if m:
+
 
             songid=m.group(1)
 
@@ -259,12 +211,12 @@ def parse_qq_music(url):
             )
 
 
+            # QQ分享页songid需要搜索转换
+
             try:
 
 
-                api = (
-                    "https://u.y.qq.com/cgi-bin/musicu.fcg"
-                )
+                api="https://u.y.qq.com/cgi-bin/musicu.fcg"
 
 
                 payload={
@@ -284,18 +236,14 @@ def parse_qq_music(url):
                             "query":
                             songid,
 
-
                             "search_type":
                             100,
-
 
                             "num_per_page":
                             1,
 
-
                             "page_num":
                             1
-
                         }
 
                     }
@@ -304,7 +252,8 @@ def parse_qq_music(url):
 
 
 
-                r=requests.post(
+                r=await asyncio.to_thread(
+                    requests.post,
                     api,
                     json=payload,
                     timeout=5
@@ -314,11 +263,9 @@ def parse_qq_music(url):
                 j=r.json()
 
 
-
                 song=(
 
-                    j
-                    ["req_0"]
+                    j["req_0"]
                     ["data"]
                     ["body"]
                     ["song"]
@@ -327,17 +274,16 @@ def parse_qq_music(url):
                 )
 
 
-
                 songmid=song["mid"]
 
 
             except Exception as e:
 
-
                 print(
                     "songid转换失败:",
                     e
                 )
+
 
 
 
@@ -349,10 +295,10 @@ def parse_qq_music(url):
 
 
 
-    info=get_song_info(
+    info=await asyncio.to_thread(
+        get_song_info_sync,
         songmid
     )
-
 
 
     if not info:
@@ -362,7 +308,8 @@ def parse_qq_music(url):
 
 
 
-    result={
+    return {
+
 
         "title":
         info["title"],
@@ -385,22 +332,14 @@ def parse_qq_music(url):
 
 
         "url":
-        (
-            "https://i.y.qq.com/v8/playsong.html?songmid="
-            +
-            songmid
-        ),
+        "https://i.y.qq.com/v8/playsong.html?songmid="
+        +
+        songmid,
 
 
         "audio":
-        (
-            "https://i.y.qq.com/v8/playsong.html?songmid="
-            +
-            songmid
-        )
+        "https://i.y.qq.com/v8/playsong.html?songmid="
+        +
+        songmid
 
     }
-
-
-
-    return result
