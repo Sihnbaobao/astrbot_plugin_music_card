@@ -29,9 +29,8 @@ async def parse_qq_music(text):
 
 
     # ======================
-    # QQ短链接处理
+    # QQ短链展开
     # ======================
-
 
     if "c6.y.qq.com" in text:
 
@@ -46,7 +45,7 @@ async def parse_qq_music(text):
 
             async with httpx.AsyncClient(
 
-                timeout=10,
+                timeout=15,
 
                 follow_redirects=True,
 
@@ -54,7 +53,11 @@ async def parse_qq_music(text):
 
                     "User-Agent":
 
-                    "Mozilla/5.0"
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+
+                    "Referer":
+
+                    "https://y.qq.com/"
 
                 }
 
@@ -68,61 +71,118 @@ async def parse_qq_music(text):
 
 
                 print(
-                    "短链状态:",
+                    "QQ短链状态:",
                     r.status_code
                 )
 
 
                 print(
-                    "最终地址:",
-                    str(r.url)
+                    "QQ最终URL:",
+                    r.url
                 )
 
 
 
-                # 优先使用最终URL
-
-                text = str(r.url)
-
+                # 第一种：
+                # 直接跳转
 
 
-                # 如果最终URL没有参数
+                final_url = str(
+                    r.url
+                )
 
-                # 再从返回内容找
+
 
                 if (
 
-                    "songid=" not in text
+                    "songmid=" in final_url
 
-                    and
+                    or
 
-                    "songmid=" not in text
+                    "songid=" in final_url
 
                 ):
 
 
+                    text = final_url
+
+
+
+                else:
+
+
+
+                    # 第二种：
+                    # HTML里面找
+
+
+                    html = r.text
+
+
+
                     print(
-                        "尝试解析返回内容"
+                        "QQ页面:",
+                        html[:1000]
                     )
 
 
-                    m = re.search(
 
-                        r"(https?://[^\s\"']+)",
-
-                        r.text
-
-                    )
+                    patterns = [
 
 
-                    if m:
+                        r'playsong\.html\?[^"\']+',
 
 
-                        text = m.group(1)
+                        r'https?://i\.y\.qq\.com/v8/playsong\.html[^"\']+',
+
+
+                        r'songmid=([A-Za-z0-9]+)'
+
+
+                    ]
+
+
+
+                    found = None
+
+
+
+                    for p in patterns:
+
+
+                        m = re.search(
+                            p,
+                            html
+                        )
+
+
+                        if m:
+
+                            found = m.group(0)
+
+                            break
+
+
+
+                    if found:
+
+
+                        if not found.startswith(
+                            "http"
+                        ):
+
+                            found = (
+                                "https://i.y.qq.com/v8/"
+                                +
+                                found
+                            )
+
+
+                        text = found
 
 
                         print(
-                            "内容提取地址:",
+                            "HTML提取:",
                             text
                         )
 
@@ -132,7 +192,7 @@ async def parse_qq_music(text):
 
 
                         print(
-                            "短链没有找到真实地址"
+                            "QQ短链没有找到歌曲信息"
                         )
 
 
