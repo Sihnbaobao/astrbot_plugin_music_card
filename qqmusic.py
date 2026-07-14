@@ -2,11 +2,10 @@ import re
 import httpx
 
 
-
 async def parse_qq_music(text):
 
-
     songmid = None
+    songid = None
 
 
     mid = re.search(
@@ -14,11 +13,8 @@ async def parse_qq_music(text):
         text
     )
 
-
     if mid:
-
         songmid = mid.group(1)
-
 
 
     sid = re.search(
@@ -26,14 +22,83 @@ async def parse_qq_music(text):
         text
     )
 
-
-    if not songmid and sid:
-
+    if sid:
         songid = sid.group(1)
 
-    else:
 
-        songid = None
+
+    # 如果只有 songid
+    # 转换成 songmid
+
+    if not songmid and songid:
+
+        try:
+
+            async with httpx.AsyncClient(
+                timeout=10
+            ) as client:
+
+
+                api = (
+                    "https://u.y.qq.com/cgi-bin/musicu.fcg"
+                )
+
+
+                data = {
+
+                    "comm":{
+                        "ct":24,
+                        "cv":0
+                    },
+
+                    "songinfo":{
+
+                        "module":
+                        "music.pf_song_detail_svr",
+
+                        "method":
+                        "get_song_detail_yqq",
+
+                        "param":{
+
+                            "song_id":
+                            songid
+
+                        }
+
+                    }
+
+                }
+
+
+                r = await client.post(
+                    api,
+                    json=data
+                )
+
+
+                j = r.json()
+
+
+                info = (
+                    j
+                    ["songinfo"]
+                    ["data"]
+                    ["track_info"]
+                )
+
+
+                songmid = info["mid"]
+
+
+        except Exception as e:
+
+            print(
+                "songid转songmid失败:",
+                e
+            )
+
+            return None
 
 
 
@@ -43,66 +108,66 @@ async def parse_qq_music(text):
 
 
 
-    api = (
-        "https://u.y.qq.com/cgi-bin/musicu.fcg"
-    )
-
-
-
-    data = {
-
-
-        "comm":{
-
-            "ct":24,
-
-            "cv":0
-
-        },
-
-
-        "songinfo":{
-
-            "module":
-            "music.pf_song_detail_svr",
-
-            "method":
-            "get_song_detail_yqq",
-
-            "param":{
-
-                "song_mid":
-                songmid
-
-            }
-
-        }
-
-    }
-
-
+    # 获取歌曲信息
 
     try:
 
 
         async with httpx.AsyncClient(
-
             timeout=10
-
         ) as client:
 
 
+            api = (
+                "https://u.y.qq.com/cgi-bin/musicu.fcg"
+            )
+
+
+            data = {
+
+
+                "comm":{
+
+                    "ct":24,
+
+                    "cv":0
+
+                },
+
+
+                "songinfo":{
+
+
+                    "module":
+
+                    "music.pf_song_detail_svr",
+
+
+                    "method":
+
+                    "get_song_detail_yqq",
+
+
+                    "param":{
+
+                        "song_mid":
+                        songmid
+
+                    }
+
+                }
+
+            }
+
+
+
             r = await client.post(
-
                 api,
-
                 json=data
-
             )
 
 
             j = r.json()
-
 
 
             info = (
@@ -113,9 +178,7 @@ async def parse_qq_music(text):
             )
 
 
-
             title = info["name"]
-
 
 
             singer = ",".join(
@@ -128,7 +191,6 @@ async def parse_qq_music(text):
                 ]
 
             )
-
 
 
             pic = (
@@ -160,12 +222,8 @@ async def parse_qq_music(text):
             )
 
 
-
-            audio = url
-
-
-
             return {
+
 
                 "title":
                 title,
@@ -184,17 +242,21 @@ async def parse_qq_music(text):
 
 
                 "audio":
-                audio
+                url,
+
+
+                "songmid":
+                songmid
+
 
             }
-
 
 
     except Exception as e:
 
 
         print(
-            "QQ解析失败",
+            "QQ音乐解析失败:",
             e
         )
 
