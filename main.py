@@ -334,6 +334,15 @@ class MusicCardPlugin(Star):
         ):
 
 
+            if "163cn.tv" in text:
+
+                text = await expand_netease_url(text)
+
+                logger.info(
+                    f"网易云短链展开:{text}"
+                )
+
+
             m = re.search(
 
                 r"id=(\d+)",
