@@ -583,6 +583,10 @@ class MusicCardPlugin(Star):
 
             or
 
+            "163cn.tv" in text
+
+            or
+
             "y.qq.com" in text
 
             or
