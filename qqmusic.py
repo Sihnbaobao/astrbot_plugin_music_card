@@ -4,6 +4,11 @@ import httpx
 
 async def parse_qq_music(text):
 
+    print("================")
+    print("进入QQ解析")
+    print(text)
+    print("================")
+
 
     result = {
 
