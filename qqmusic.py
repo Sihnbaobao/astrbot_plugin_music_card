@@ -1,51 +1,46 @@
 import re
 import httpx
-from urllib.parse import unquote
 
 
 async def parse_qq_music(text):
 
+
     result = {
+
         "title": None,
         "singer": None,
         "pic": None,
         "url": None,
         "audio": None,
         "songmid": None
+
     }
 
 
-    songmid = None
-
-
-    # 直接songmid
-
-    mid = re.search(
-        r"songmid=([A-Za-z0-9]+)",
-        text
-    )
-
-    if mid:
-
-        songmid = mid.group(1)
-
-
 
     # =====================
-    # songid分享页解析
+    # 处理QQ短链
     # =====================
 
-    if not songmid and "songid=" in text:
+
+    if "c6.y.qq.com" in text:
+
 
         try:
 
+
             async with httpx.AsyncClient(
+
                 timeout=10,
+
+                follow_redirects=True,
+
                 headers={
+
                     "User-Agent":
                     "Mozilla/5.0"
-                },
-                follow_redirects=True
+
+                }
 
             ) as client:
 
@@ -53,49 +48,61 @@ async def parse_qq_music(text):
                 r = await client.get(text)
 
 
-                html = r.text
-
+                text = str(r.url)
 
 
                 print(
-                    "QQ网页长度:",
-                    len(html)
+                    "短链展开:",
+                    text
                 )
-
-
-                # 找songmid
-
-                mid = re.search(
-                    r'"songmid":"([A-Za-z0-9]+)"',
-                    html
-                )
-
-
-                if mid:
-
-                    songmid = mid.group(1)
-
-
-                    print(
-                        "网页找到songmid:",
-                        songmid
-                    )
-
 
 
         except Exception as e:
 
+
             print(
-                "网页解析失败:",
+                "短链展开失败:",
                 e
             )
 
 
 
+    songmid = None
+
+
+
+    # =====================
+    # 提取songmid
+    # =====================
+
+
+    mid = re.search(
+
+        r"songmid=([A-Za-z0-9]+)",
+
+        text
+
+    )
+
+
+    if mid:
+
+        songmid = mid.group(1)
+
+
+
+    print(
+        "发现songmid:",
+        songmid
+    )
+
+
+
     if not songmid:
 
+
         print(
-            "没有找到songmid"
+            "没有songmid，无法继续"
         )
 
         return result
@@ -103,7 +110,7 @@ async def parse_qq_music(text):
 
 
     # =====================
-    # 获取详情
+    # QQ详情API
     # =====================
 
 
@@ -111,35 +118,53 @@ async def parse_qq_music(text):
 
 
         async with httpx.AsyncClient(
+
             timeout=10
+
         ) as client:
 
 
+
             api = (
+
                 "https://u.y.qq.com/cgi-bin/musicu.fcg"
+
             )
+
 
 
             data = {
 
+
                 "comm":{
+
                     "ct":24,
+
                     "cv":0
+
                 },
 
 
                 "songinfo":{
 
+
                     "module":
+
                     "music.pf_song_detail_svr",
 
+
                     "method":
+
                     "get_song_detail_yqq",
+
 
                     "param":{
 
+
                         "song_mid":
+
                         songmid
+
 
                     }
 
@@ -148,56 +173,87 @@ async def parse_qq_music(text):
             }
 
 
+
             r = await client.post(
+
                 api,
+
                 json=data
+
             )
 
 
-            j=r.json()
+            j = r.json()
 
 
-            info=(
+
+            info = (
+
                 j
+
                 ["songinfo"]
+
                 ["data"]
+
                 ["track_info"]
+
             )
 
 
-            result["title"]=info["name"]
+
+            result["title"] = info["name"]
 
 
-            result["singer"]=",".join(
+
+            result["singer"] = ",".join(
+
                 [
+
                     x["name"]
+
                     for x in info["singer"]
+
                 ]
+
             )
 
 
-            result["pic"]=(
+
+            result["pic"] = (
+
                 "https://y.gtimg.cn/music/photo_new/"
+
                 "T002R300x300M000/"
+
                 +
+
                 info["album"]["mid"]
+
                 +
+
                 ".jpg"
+
             )
 
 
-            result["url"]=(
+
+            result["url"] = (
+
                 "https://i.y.qq.com/v8/playsong.html?"
+
                 "songmid="
+
                 +
+
                 songmid
+
             )
 
 
-            result["audio"]=result["url"]
+            result["audio"] = result["url"]
 
 
-            result["songmid"]=songmid
+            result["songmid"] = songmid
 
 
 
@@ -207,9 +263,14 @@ async def parse_qq_music(text):
 
     except Exception as e:
 
+
         print(
-            "详情获取失败:",
+
+            "QQ详情失败:",
+
             e
+
         )
+
 
         return result
