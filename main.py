@@ -1,5 +1,6 @@
 import re
 import os
+import httpx
 
 from astrbot.core import logger
 
@@ -15,65 +16,33 @@ from astrbot.api.star import (
 
 from .qqcard import parse_qq_card
 
-import httpx
-
-
 
 print("========== music_card 加载检查 ==========")
-
-print(
-    "main.py路径:",
-    os.path.abspath(__file__)
-)
-
+print("main.py路径:", os.path.abspath(__file__))
 print("========================================")
-
-
-
 
 
 async def expand_netease_url(url):
 
-
     if "163cn.tv" not in url:
-
         return url
 
-
     try:
-
-
         async with httpx.AsyncClient(
-
             follow_redirects=True,
-
             timeout=10
-
         ) as client:
 
-
-            r = await client.get(
-                url
-            )
-
-
-            return str(
-                r.url
-            )
-
+            r = await client.get(url)
+            return str(r.url)
 
     except Exception as e:
-
 
         logger.warning(
             f"网易云短链展开失败:{e}"
         )
 
-
         return url
-
-
-
 
 
 
@@ -81,7 +50,7 @@ async def expand_netease_url(url):
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.9"
+    "0.2.0"
 )
 class MusicCardPlugin(Star):
 
@@ -92,94 +61,51 @@ class MusicCardPlugin(Star):
 
 
 
-
-
-    # =========================
-    # 发送消息
-    # =========================
-
-
     async def send_music(
-
         self,
-
         event,
-
         message
-
     ):
-
 
         if event.message_obj.group_id:
 
-
             await event.bot.api.call_action(
-
                 "send_group_msg",
-
-                group_id=
-                event.message_obj.group_id,
-
-                message=
-                message
-
+                group_id=event.message_obj.group_id,
+                message=message
             )
-
 
         else:
 
-
             await event.bot.api.call_action(
-
                 "send_private_msg",
-
-                user_id=
-                event.get_sender_id(),
-
-                message=
-                message
-
+                user_id=event.get_sender_id(),
+                message=message
             )
 
 
 
-
-
-
-
-    # =========================
-    # 网易云卡片
-    # =========================
-
+    # =====================
+    # 网易云音乐
+    # =====================
 
     async def send_163(
-
         self,
-
         event,
-
         song_id
-
     ):
 
 
         message = [
 
             {
+                "type":"music",
 
-                "type":
-                "music",
+                "data":{
 
+                    "type":"163",
 
-                "data":
-                {
-
-                    "type":
-                    "163",
-
-
-                    "id":
-                    song_id
+                    "id":song_id
 
                 }
 
@@ -189,23 +115,15 @@ class MusicCardPlugin(Star):
 
 
         await self.send_music(
-
             event,
-
             message
-
         )
 
 
 
-
-
-
-
-    # =========================
-    # QQ自定义卡片
-    # =========================
-
+    # =====================
+    # QQ音乐 custom
+    # =====================
 
     async def send_qq_card(
         self,
@@ -218,53 +136,38 @@ class MusicCardPlugin(Star):
 
             {
 
-                "type": "music",
+                "type":"music",
 
-                "data":
+                "data":{
 
-                {
+                    "type":"custom",
 
-                    "type":
-                    "custom",
-
-
-                    "url":
-                    qq.get(
+                    "url":qq.get(
                         "url",
                         ""
                     ),
 
-
-                    "audio":
-                    qq.get(
+                    "audio":qq.get(
                         "audio",
                         ""
                     ),
 
-
-                    "image":
-                    qq.get(
+                    "image":qq.get(
                         "pic",
                         ""
                     ),
 
-
-                    "title":
-                    qq.get(
+                    "title":qq.get(
                         "title",
                         "QQ音乐"
                     ),
 
-
-                    "content":
-                    qq.get(
+                    "content":qq.get(
                         "singer",
                         ""
                     ),
 
-
-                    "appid":
-                    "100497308"
+                    "appid":"100497308"
 
                 }
 
@@ -274,7 +177,7 @@ class MusicCardPlugin(Star):
 
 
         logger.info(
-            f"发送QQ音乐custom卡片:{message}"
+            f"QQ音乐custom消息:{message}"
         )
 
 
@@ -285,260 +188,139 @@ class MusicCardPlugin(Star):
 
 
 
-
-
-
-
-
-
-    # =========================
-    # 消息监听
-    # =========================
-
-
     @filter.event_message_type(
         filter.EventMessageType.ALL
     )
     async def music_card(
-
         self,
-
-        event: AstrMessageEvent
-
+        event:AstrMessageEvent
     ):
 
 
         text = event.message_str or ""
 
 
-
         logger.info(
             "========== 收到消息 =========="
         )
 
-
         logger.info(
-            f"message_str: {text}"
+            f"message_str:{text}"
         )
 
 
 
-
-
-
-        # =========================
-        # 网易云处理
-        # =========================
-
+        # 网易云
 
         if (
-
             "music.163.com" in text
-
             or
-
             "163cn.tv" in text
-
         ):
 
 
-
-            url_match = re.search(
-
-                r"https?://[^\s]+",
-
-                text
-
-            )
-
-
-            if url_match:
-
-
-                netease_url = url_match.group(0)
-
-
-            else:
-
-
-                netease_url = text
-
-
-
-
-
-            logger.info(
-
-                f"网易云真实链接:{netease_url}"
-
-            )
-
-
-
-
-
-            netease_url = await expand_netease_url(
-
-                netease_url
-
-            )
-
-
-
-
-
-            logger.info(
-
-                f"网易云展开:{netease_url}"
-
-            )
-
-
-
-
-
             m = re.search(
-
-                r"id=(\d+)",
-
-                netease_url
-
+                r"https?://[^\s]+",
+                text
             )
 
 
+            url = (
+                m.group(0)
+                if m
+                else text
+            )
 
 
+            url = await expand_netease_url(
+                url
+            )
 
-            if m:
 
+            logger.info(
+                f"网易云链接:{url}"
+            )
+
+
+            song = re.search(
+                r"id=(\d+)",
+                url
+            )
+
+
+            if song:
 
                 await self.send_163(
-
                     event,
-
-                    m.group(1)
-
+                    song.group(1)
                 )
 
 
                 event.stop_event()
-
                 return
 
 
 
 
 
-
-
-
-
-
-        # =========================
         # QQ音乐
-        # =========================
-
 
         if (
-
             "y.qq.com" in text
-
             or
-
             "c6.y.qq.com" in text
-
             or
-
             "i.y.qq.com" in text
-
         ):
 
 
             logger.info(
-
-                "检测到QQ音乐，进入qqcard解析"
-
+                "检测到QQ音乐"
             )
-
 
 
             qq = await parse_qq_card(
-
                 text
-
             )
-
 
 
             logger.info(
-
-                f"QQ卡片解析结果:{qq}"
-
+                f"QQ解析结果:{qq}"
             )
-
 
 
             if qq:
 
 
                 await self.send_qq_card(
-
                     event,
-
                     qq
-
                 )
 
 
             else:
 
-
                 logger.warning(
-
-                    "QQ卡片解析失败"
-
+                    "QQ音乐解析失败"
                 )
 
 
-
             event.stop_event()
-
             return
 
 
 
-
-
-
-
-        # =========================
-        # 防止AI处理链接
-        # =========================
-
-
         if (
-
             "music.163.com" in text
-
             or
-
             "163cn.tv" in text
-
             or
-
             "y.qq.com" in text
-
             or
-
             "c6.y.qq.com" in text
-
             or
-
             "i.y.qq.com" in text
-
         ):
 
-
             event.stop_event()
-
             return
