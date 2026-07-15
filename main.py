@@ -125,12 +125,15 @@ class MusicCardPlugin(Star):
 
 
 
+    # =========================
+    # QQ音乐卡片
+    # =========================
+
     async def send_qq_card(
         self,
         event,
         qq
     ):
-
 
         message = [
 
@@ -140,42 +143,12 @@ class MusicCardPlugin(Star):
 
                 "data": {
 
-                    "type": "custom",
+                    "type": "qq",
 
-                    "url": qq.get(
-                        "url",
+                    "id": qq.get(
+                        "songmid",
                         ""
-                    ),
-
-                    "audio": qq.get(
-                        "audio",
-                        ""
-                    ),
-
-                    "image": qq.get(
-                        "pic",
-                        ""
-                    ),
-
-                    "title": qq.get(
-                        "title",
-                        "QQ音乐"
-                    ),
-
-                    "content": qq.get(
-                        "singer",
-                        ""
-                    ),
-
-                    "summary": (
-                        qq.get("singer", "")
-                        +
-                        " - "
-                        +
-                        qq.get("title", "")
-                    ),
-
-                    "appid": 100497308
+                    )
 
                 }
 
@@ -185,13 +158,16 @@ class MusicCardPlugin(Star):
 
 
         logger.info(
-            f"QQ音乐custom消息:{message}"
+            f"发送QQ音乐卡片:{message}"
         )
 
 
         await self.send_music(
+
             event,
+
             message
+
         )
 
 
