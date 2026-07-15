@@ -50,10 +50,15 @@ from astrbot.api.star import (
 )
 
 
+# 注意：
+# 删除 qqshare 导入
+# 不再使用 parse_qq_share
+
 from .qqmusic import parse_qq_music
-from .qqshare import parse_qq_share
 from .netease import search_netease
+
 import httpx
+
 
 
 async def expand_netease_url(url):
@@ -65,6 +70,7 @@ async def expand_netease_url(url):
 
 
     try:
+
 
         async with httpx.AsyncClient(
 
@@ -98,11 +104,12 @@ async def expand_netease_url(url):
 
 
 
+
 @register(
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.7"
+    "0.1.8"
 )
 class MusicCardPlugin(Star):
 
@@ -113,10 +120,6 @@ class MusicCardPlugin(Star):
 
 
 
-
-    # ==========================
-    # 发送音乐消息
-    # ==========================
 
     async def send_music(
         self,
@@ -160,10 +163,6 @@ class MusicCardPlugin(Star):
 
 
 
-    # ==========================
-    # 网易云卡片
-    # ==========================
-
     async def send_163(
         self,
         event,
@@ -197,20 +196,13 @@ class MusicCardPlugin(Star):
 
 
         await self.send_music(
-
             event,
-
             message
-
         )
 
 
 
 
-
-    # ==========================
-    # QQ音乐卡片
-    # ==========================
 
     async def send_qq(
         self,
@@ -229,7 +221,6 @@ class MusicCardPlugin(Star):
 
                 "data":
                 {
-
 
                     "type":
                     "custom",
@@ -269,7 +260,6 @@ class MusicCardPlugin(Star):
                         ""
                     )
 
-
                 }
 
             }
@@ -278,23 +268,9 @@ class MusicCardPlugin(Star):
 
 
         await self.send_music(
-
             event,
-
             message
-
         )
-
-
-
-
-
-
-    # ==========================
-    # 消息监听
-    # ==========================
-
-
     @filter.event_message_type(
         filter.EventMessageType.ALL
     )
@@ -321,8 +297,6 @@ class MusicCardPlugin(Star):
 
 
 
-
-
         # ==========================
         # 网易云链接处理
         # ==========================
@@ -335,7 +309,7 @@ class MusicCardPlugin(Star):
         ):
 
 
-            # 从文字中提取真正URL
+            # 提取真正URL
 
             url_match = re.search(
                 r"https?://[^\s]+",
@@ -346,7 +320,6 @@ class MusicCardPlugin(Star):
             if url_match:
 
                 netease_url = url_match.group(0)
-
 
             else:
 
@@ -360,8 +333,6 @@ class MusicCardPlugin(Star):
 
 
 
-            # 展开短链
-
             netease_url = await expand_netease_url(
                 netease_url
             )
@@ -372,8 +343,6 @@ class MusicCardPlugin(Star):
             )
 
 
-
-            # 提取歌曲ID
 
             m = re.search(
                 r"id=(\d+)",
@@ -402,9 +371,8 @@ class MusicCardPlugin(Star):
 
 
 
-
         # ==========================
-        # QQ音乐链接
+        # QQ音乐处理
         # ==========================
 
 
@@ -455,32 +423,19 @@ class MusicCardPlugin(Star):
 
 
 
-
             # QQ解析失败
 
             if not qq:
 
 
                 logger.warning(
-                    "QQ网页解析失败，尝试QQ分享解析"
+                    "QQ音乐解析失败"
                 )
 
 
-                qq = await parse_qq_share(text)
+                event.stop_event()
 
-
-
-                if not qq:
-
-
-                    logger.warning(
-                        "QQ分享也解析失败"
-                    )
-
-
-                    event.stop_event()
-
-                    return
+                return
 
 
 
@@ -488,7 +443,7 @@ class MusicCardPlugin(Star):
 
 
             # ==========================
-            # 第一步：搜索网易云
+            # 搜索网易云
             # ==========================
 
 
@@ -519,6 +474,7 @@ class MusicCardPlugin(Star):
 
                 )
 
+
                 ne = None
 
 
@@ -534,6 +490,7 @@ class MusicCardPlugin(Star):
                     f"网易云匹配成功:{ne}"
 
                 )
+
 
 
                 await self.send_163(
@@ -555,8 +512,8 @@ class MusicCardPlugin(Star):
 
 
             # ==========================
-            # 第二步：网易云失败
-            # 回退QQ音乐
+            # 网易云失败
+            # 发送QQ卡片
             # ==========================
 
 
@@ -586,8 +543,9 @@ class MusicCardPlugin(Star):
 
 
 
-
+        # ==========================
         # 防止AI继续处理链接
+        # ==========================
 
 
         if (
