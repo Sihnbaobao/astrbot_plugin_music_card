@@ -3,8 +3,16 @@ import os
 import httpx
 
 from astrbot.core import logger
-from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Star, register
+
+from astrbot.api.event import (
+    filter,
+    AstrMessageEvent
+)
+
+from astrbot.api.star import (
+    Star,
+    register
+)
 
 from .qqcard import parse_qq_card
 
@@ -14,28 +22,11 @@ print("main.py路径:", os.path.abspath(__file__))
 print("========================================")
 
 
-async def expand_netease_url(url):
-    if "163cn.tv" not in url:
-        return url
-
-    try:
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=10
-        ) as client:
-            r = await client.get(url)
-            return str(r.url)
-
-    except Exception as e:
-        logger.warning(f"网易云短链展开失败:{e}")
-        return url
-
-
 @register(
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.2.0"
+    "0.1.9"
 )
 class MusicCardPlugin(Star):
 
@@ -43,9 +34,39 @@ class MusicCardPlugin(Star):
         super().__init__(context)
 
 
-    async def send_music(self, event, message):
+    async def expand_netease_url(self, url):
+
+        if "163cn.tv" not in url:
+            return url
 
         try:
+            async with httpx.AsyncClient(
+                follow_redirects=True,
+                timeout=10
+            ) as client:
+
+                r = await client.get(url)
+
+                return str(r.url)
+
+        except Exception as e:
+
+            logger.warning(
+                f"网易云短链展开失败:{e}"
+            )
+
+            return url
+
+
+
+    async def send_music(
+        self,
+        event,
+        message
+    ):
+
+        try:
+
             if event.message_obj.group_id:
 
                 await event.bot.api.call_action(
@@ -62,37 +83,63 @@ class MusicCardPlugin(Star):
                     message=message
                 )
 
+
         except Exception as e:
-            logger.error(f"发送消息失败:{e}")
+
+            logger.error(
+                f"发送消息失败:{e}"
+            )
+
             raise
 
 
 
-    async def send_163(self, event, song_id):
+    async def send_163(
+        self,
+        event,
+        song_id
+    ):
 
         message = [
+
             {
                 "type": "music",
+
                 "data": {
+
                     "type": "163",
+
                     "id": song_id
+
                 }
+
             }
+
         ]
 
-        await self.send_music(event, message)
+
+        await self.send_music(
+            event,
+            message
+        )
 
 
 
-    async def send_qq_card(self, event, qq):
+    async def send_qq_card(
+        self,
+        event,
+        qq
+    ):
 
-        title = qq.get("title", "QQ音乐")
-        singer = qq.get("singer", "")
 
         message = [
+
             {
+
                 "type": "music",
+
                 "data": {
+
                     "type": "custom",
 
                     "url": qq.get(
@@ -110,22 +157,37 @@ class MusicCardPlugin(Star):
                         ""
                     ),
 
-                    "title": title,
+                    "title": qq.get(
+                        "title",
+                        "QQ音乐"
+                    ),
 
-                    "content": singer,
+                    "content": qq.get(
+                        "singer",
+                        ""
+                    ),
 
-                    "summary": f"{singer} - {title}",
+                    "summary": (
+                        qq.get("singer", "")
+                        +
+                        " - "
+                        +
+                        qq.get("title", "")
+                    ),
 
-                    "app": "QQ音乐",
+                    "appid": 100497308
 
-                    "appid": "100497308"
                 }
+
             }
+
         ]
+
 
         logger.info(
             f"QQ音乐custom消息:{message}"
         )
+
 
         await self.send_music(
             event,
@@ -137,9 +199,14 @@ class MusicCardPlugin(Star):
     @filter.event_message_type(
         filter.EventMessageType.ALL
     )
-    async def music_card(self, event: AstrMessageEvent):
+    async def music_card(
+        self,
+        event: AstrMessageEvent
+    ):
+
 
         text = event.message_str or ""
+
 
         logger.info(
             "========== 收到消息 =========="
@@ -150,62 +217,85 @@ class MusicCardPlugin(Star):
         )
 
 
+
         # 网易云
 
         if (
             "music.163.com" in text
-            or "163cn.tv" in text
+            or
+            "163cn.tv" in text
         ):
 
-            url_match = re.search(
+
+            m = re.search(
                 r"https?://[^\s]+",
                 text
             )
 
-            netease_url = (
-                url_match.group(0)
-                if url_match
+
+            url = (
+                m.group(0)
+                if m
                 else text
             )
 
-            netease_url = await expand_netease_url(
-                netease_url
+
+            url = await self.expand_netease_url(
+                url
             )
 
-            m = re.search(
+
+            logger.info(
+                f"网易云展开:{url}"
+            )
+
+
+            song = re.search(
                 r"id=(\d+)",
-                netease_url
+                url
             )
 
-            if m:
+
+            if song:
 
                 await self.send_163(
                     event,
-                    m.group(1)
+                    song.group(1)
                 )
+
 
                 event.stop_event()
                 return
 
 
 
+
         # QQ音乐
+
 
         if (
             "y.qq.com" in text
-            or "c6.y.qq.com" in text
-            or "i.y.qq.com" in text
+            or
+            "c6.y.qq.com" in text
+            or
+            "i.y.qq.com" in text
         ):
+
 
             logger.info(
                 "检测到QQ音乐"
             )
 
-            qq = await parse_qq_card(text)
+
+            qq = await parse_qq_card(
+                text
+            )
+
 
             logger.info(
                 f"QQ解析结果:{qq}"
             )
+
 
             if qq:
 
@@ -220,6 +310,7 @@ class MusicCardPlugin(Star):
                     "QQ音乐解析失败"
                 )
 
+
             event.stop_event()
             return
 
@@ -227,10 +318,15 @@ class MusicCardPlugin(Star):
 
         if (
             "music.163.com" in text
-            or "163cn.tv" in text
-            or "y.qq.com" in text
-            or "c6.y.qq.com" in text
-            or "i.y.qq.com" in text
+            or
+            "163cn.tv" in text
+            or
+            "y.qq.com" in text
+            or
+            "c6.y.qq.com" in text
+            or
+            "i.y.qq.com" in text
         ):
+
             event.stop_event()
             return
