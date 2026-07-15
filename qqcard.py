@@ -17,6 +17,7 @@ async def convert_songid_to_mid(songid):
         f"转换QQ songid:{songid}"
     )
 
+
     payload = {
 
         "comm": {
@@ -24,122 +25,21 @@ async def convert_songid_to_mid(songid):
             "cv": 0
         },
 
-        "music.trackInfo.UniformRuleCtrl": {
 
-            "method": "GetTrackInfo",
-
-            "module": "music.trackInfo.UniformRuleCtrl",
-
-            "param": {
-
-                "ids": [
-                    int(songid)
-                ]
-
-            }
-        }
-    }
-
-
-    try:
-
-        async with httpx.AsyncClient(
-            timeout=10,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            }
-        ) as client:
-
-            r = await client.post(
-                QQ_API,
-                json=payload
-            )
-
-            data = r.json()
-
-
-    except Exception as e:
-
-        logger.warning(
-            f"songid转换请求失败:{e}"
-        )
-
-        return None
-
-
-
-    try:
-
-        tracks = (
-            data
-            ["music.trackInfo.UniformRuleCtrl"]
-            ["data"]
-            ["tracks"]
-        )
-
-
-        if not tracks:
-
-            return None
-
-
-        mid = tracks[0].get(
-            "mid"
-        )
-
-
-        logger.info(
-            f"songid转换成功:{mid}"
-        )
-
-
-        return mid
-
-
-    except Exception as e:
-
-        logger.warning(
-            f"songid转换解析失败:{e}"
-        )
-
-        return None
-
-
-
-
-# =========================
-# 获取QQ歌曲信息
-# =========================
-
-async def get_qq_song(song_mid):
-
-
-    logger.info(
-        f"获取QQ歌曲:{song_mid}"
-    )
-
-
-    payload = {
-
-        "comm": {
-
-            "ct": 24,
-            "cv": 0
-
-        },
-
-        "songinfo": {
+        "music.pf_song_detail_svr": {
 
             "method":
             "get_song_detail_yqq",
 
+
             "module":
             "music.pf_song_detail_svr",
 
+
             "param": {
 
-                "song_mid":
-                song_mid
+                "song_id":
+                int(songid)
 
             }
 
@@ -158,41 +58,197 @@ async def get_qq_song(song_mid):
             }
         ) as client:
 
+
             r = await client.post(
                 QQ_API,
                 json=payload
             )
 
+
             data = r.json()
+
 
 
     except Exception as e:
 
+
         logger.warning(
-            f"QQ歌曲请求失败:{e}"
+            f"songid请求失败:{e}"
         )
 
         return None
+
+
 
 
 
     try:
 
+
         track = (
+
             data
-            ["songinfo"]
+
+            ["music.pf_song_detail_svr"]
+
             ["data"]
+
             ["track_info"]
+
+        )
+
+
+        mid = track.get(
+            "mid"
+        )
+
+
+        if mid:
+
+
+            logger.info(
+                f"songid转换成功:{mid}"
+            )
+
+
+            return mid
+
+
+
+    except Exception as e:
+
+
+        logger.warning(
+            f"songid转换失败:{e}"
+        )
+
+
+
+    return None
+
+
+
+
+
+# =========================
+# 获取歌曲信息
+# =========================
+
+
+async def get_qq_song(song_mid):
+
+
+    logger.info(
+        f"获取QQ歌曲:{song_mid}"
+    )
+
+
+    payload = {
+
+
+        "comm": {
+
+            "ct":24,
+            "cv":0
+
+        },
+
+
+        "songinfo": {
+
+
+            "method":
+            "get_song_detail_yqq",
+
+
+            "module":
+            "music.pf_song_detail_svr",
+
+
+            "param": {
+
+                "song_mid":
+                song_mid
+
+            }
+
+        }
+
+    }
+
+
+
+    try:
+
+
+        async with httpx.AsyncClient(
+
+            timeout=10,
+
+            headers={
+
+                "User-Agent":
+                "Mozilla/5.0"
+
+            }
+
+        ) as client:
+
+
+            r = await client.post(
+
+                QQ_API,
+
+                json=payload
+
+            )
+
+
+            data = r.json()
+
+
+
+    except Exception as e:
+
+
+        logger.warning(
+            f"QQ歌曲请求失败:{e}"
+        )
+
+
+        return None
+
+
+
+
+
+    try:
+
+
+        track = (
+
+            data
+
+            ["songinfo"]
+
+            ["data"]
+
+            ["track_info"]
+
         )
 
 
     except Exception as e:
 
+
         logger.warning(
-            f"QQ歌曲结构错误:{e}"
+            f"歌曲结构错误:{e}"
         )
 
+
         return None
+
+
 
 
 
@@ -202,21 +258,24 @@ async def get_qq_song(song_mid):
     )
 
 
+
+    singer = ""
+
+
     singers = track.get(
         "singer",
         []
     )
 
 
-    singer = ""
-
-
     if singers:
+
 
         singer = singers[0].get(
             "name",
             ""
         )
+
 
 
     album = track.get(
@@ -232,39 +291,51 @@ async def get_qq_song(song_mid):
         "mid"
     ):
 
+
         pic = (
+
             "https://y.gtimg.cn/music/photo_new/"
             "T002R300x300M000/"
             +
             album["mid"]
             +
             ".jpg"
+
         )
+
+
 
 
 
     result = {
 
+
         "title":
         title,
+
 
         "singer":
         singer,
 
+
         "pic":
         pic,
+
 
         "url":
         f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
 
-        # 后续vkey获取播放地址
+
         "audio":
-        "",
+        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
+
 
         "songmid":
         song_mid
 
+
     }
+
 
 
     logger.info(
@@ -273,9 +344,17 @@ async def get_qq_song(song_mid):
 
 
     return result
+
+
+
+
+
+
+
 # =========================
-# QQ解析入口
+# QQ链接解析
 # =========================
+
 
 async def parse_qq_card(text):
 
@@ -283,6 +362,7 @@ async def parse_qq_card(text):
     logger.info(
         f"QQ卡片解析输入:{text}"
     )
+
 
 
     m = re.search(
@@ -293,10 +373,6 @@ async def parse_qq_card(text):
 
     if not m:
 
-        logger.warning(
-            "没有找到QQ链接"
-        )
-
         return None
 
 
@@ -305,9 +381,8 @@ async def parse_qq_card(text):
 
 
 
-    # 展开QQ短链
-
     try:
+
 
         async with httpx.AsyncClient(
 
@@ -342,7 +417,10 @@ async def parse_qq_card(text):
             f"QQ链接展开失败:{e}"
         )
 
+
         return None
+
+
 
 
 
@@ -356,16 +434,15 @@ async def parse_qq_card(text):
 
 
 
+
     # =========================
     # songDetail
     # =========================
 
+
     m = re.search(
-
         r"songDetail/([0-9A-Za-z]+)",
-
         real_url
-
     )
 
 
@@ -375,35 +452,16 @@ async def parse_qq_card(text):
         value = m.group(1)
 
 
-        # 重点：
-        # QQ新版数字songDetail不是songid
-        # 直接作为mid尝试
 
-        song_mid = value
+        if value.isdigit():
 
 
+            song_mid = await convert_songid_to_mid(
+                value
+            )
 
 
-    # =========================
-    # songmid参数
-    # =========================
-
-    if not song_mid:
-
-
-        m = re.search(
-
-            r"songmid=([0-9A-Za-z]+)",
-
-            real_url
-
-        )
-
-
-        if m:
-
-
-            value = m.group(1)
+        else:
 
 
             song_mid = value
@@ -413,18 +471,39 @@ async def parse_qq_card(text):
 
 
     # =========================
-    # 老版songid参数
+    # songmid
     # =========================
+
 
     if not song_mid:
 
 
         m = re.search(
-
-            r"songid=(\d+)",
-
+            r"songmid=([0-9A-Za-z]+)",
             real_url
+        )
 
+
+        if m:
+
+
+            song_mid = m.group(1)
+
+
+
+
+
+    # =========================
+    # songid
+    # =========================
+
+
+    if not song_mid:
+
+
+        m = re.search(
+            r"songid=(\d+)",
+            real_url
         )
 
 
@@ -432,11 +511,8 @@ async def parse_qq_card(text):
 
 
             song_mid = await convert_songid_to_mid(
-
                 m.group(1)
-
             )
-
 
 
 
@@ -445,8 +521,9 @@ async def parse_qq_card(text):
 
 
         logger.warning(
-            "无法获取songmid"
+            "无法获得songmid"
         )
+
 
         return None
 
@@ -455,20 +532,11 @@ async def parse_qq_card(text):
 
 
     logger.info(
-
         f"最终songmid:{song_mid}"
-
     )
 
 
 
-
-    result = await get_qq_song(
-
+    return await get_qq_song(
         song_mid
-
     )
-
-
-
-    return result
