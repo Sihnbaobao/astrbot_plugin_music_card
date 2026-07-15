@@ -26,11 +26,9 @@ async def convert_songid_to_mid(songid):
 
         "music.trackInfo.UniformRuleCtrl": {
 
-            "method":
-            "GetTrackInfo",
+            "method": "GetTrackInfo",
 
-            "module":
-            "music.trackInfo.UniformRuleCtrl",
+            "module": "music.trackInfo.UniformRuleCtrl",
 
             "param": {
 
@@ -48,8 +46,7 @@ async def convert_songid_to_mid(songid):
         async with httpx.AsyncClient(
             timeout=10,
             headers={
-                "User-Agent":
-                "Mozilla/5.0"
+                "User-Agent": "Mozilla/5.0"
             }
         ) as client:
 
@@ -73,16 +70,20 @@ async def convert_songid_to_mid(songid):
 
     try:
 
-        track = (
+        tracks = (
             data
             ["music.trackInfo.UniformRuleCtrl"]
             ["data"]
             ["tracks"]
-            [0]
         )
 
 
-        mid = track.get(
+        if not tracks:
+
+            return None
+
+
+        mid = tracks[0].get(
             "mid"
         )
 
@@ -105,200 +106,9 @@ async def convert_songid_to_mid(songid):
 
 
 
-# =========================
-# 获取真实播放地址
-# =========================
-
-async def get_play_url(song_mid):
-
-
-    logger.info(
-        f"获取QQ播放地址:{song_mid}"
-    )
-
-
-    payload = {
-
-        "comm": {
-
-            "ct":24,
-            "cv":0
-
-        },
-
-
-        "music.vkey.GetVkeyServer": {
-
-            "method":
-            "CgiGetVkey",
-
-
-            "module":
-            "music.vkey.GetVkeyServer",
-
-
-            "param": {
-
-                "guid":
-                "10000",
-
-
-                "songmid": [
-
-                    song_mid
-
-                ],
-
-
-                "songtype": [
-
-                    0
-
-                ],
-
-
-                "uin":
-                "0",
-
-
-                "loginflag":
-                1,
-
-
-                "platform":
-                "20"
-
-            }
-
-        }
-
-    }
-
-
-
-    try:
-
-
-        async with httpx.AsyncClient(
-
-            timeout=10,
-
-            headers={
-
-                "User-Agent":
-                "Mozilla/5.0"
-
-            }
-
-        ) as client:
-
-
-            r = await client.post(
-
-                QQ_API,
-
-                json=payload
-
-            )
-
-
-            data = r.json()
-
-
-
-    except Exception as e:
-
-
-        logger.warning(
-            f"获取播放地址失败:{e}"
-        )
-
-        return ""
-
-
-
-
-    try:
-
-
-        info = (
-
-            data
-
-            ["music.vkey.GetVkeyServer"]
-
-            ["data"]
-
-        )
-
-
-        sip = info.get(
-
-            "sip",
-
-            []
-
-        )
-
-
-        midurlinfo = info.get(
-
-            "midurlinfo",
-
-            []
-
-        )
-
-
-        if sip and midurlinfo:
-
-
-            purl = midurlinfo[0].get(
-
-                "purl",
-
-                ""
-
-            )
-
-
-            if purl:
-
-
-                url = sip[0] + purl
-
-
-                logger.info(
-
-                    f"真实播放地址:{url}"
-
-                )
-
-
-                return url
-
-
-
-
-    except Exception as e:
-
-
-        logger.warning(
-
-            f"播放地址解析失败:{e}"
-
-        )
-
-
-
-    return ""
-
-
-
-
 
 # =========================
-# 获取歌曲信息
+# 获取QQ歌曲信息
 # =========================
 
 async def get_qq_song(song_mid):
@@ -311,36 +121,24 @@ async def get_qq_song(song_mid):
 
     payload = {
 
-
         "comm": {
 
-            "ct":24,
-
-            "cv":0
+            "ct": 24,
+            "cv": 0
 
         },
 
-
         "songinfo": {
 
-
             "method":
-
             "get_song_detail_yqq",
 
-
-
             "module":
-
             "music.pf_song_detail_svr",
-
-
 
             "param": {
 
-
                 "song_mid":
-
                 song_mid
 
             }
@@ -350,100 +148,63 @@ async def get_qq_song(song_mid):
     }
 
 
-
-
     try:
 
-
         async with httpx.AsyncClient(
-
             timeout=10,
-
             headers={
-
                 "User-Agent":
                 "Mozilla/5.0"
-
             }
-
         ) as client:
 
-
             r = await client.post(
-
                 QQ_API,
-
                 json=payload
-
             )
-
 
             data = r.json()
 
 
-
     except Exception as e:
 
-
         logger.warning(
-
             f"QQ歌曲请求失败:{e}"
-
         )
 
         return None
-
-
 
 
 
     try:
 
-
         track = (
-
             data
-
             ["songinfo"]
-
             ["data"]
-
             ["track_info"]
-
         )
 
 
-    except Exception:
-
+    except Exception as e:
 
         logger.warning(
-
-            "QQ歌曲结构错误"
-
+            f"QQ歌曲结构错误:{e}"
         )
 
         return None
 
 
 
-
-
     title = track.get(
-
         "name",
-
         ""
-
     )
 
 
-
     singers = track.get(
-
         "singer",
-
         []
-
     )
 
 
@@ -452,121 +213,66 @@ async def get_qq_song(song_mid):
 
     if singers:
 
-
         singer = singers[0].get(
-
             "name",
-
             ""
-
         )
 
 
-
-
     album = track.get(
-
         "album",
-
         {}
-
     )
-
 
 
     pic = ""
 
 
-
     if album.get(
-
         "mid"
-
     ):
 
-
         pic = (
-
             "https://y.gtimg.cn/music/photo_new/"
-
             "T002R300x300M000/"
-
             +
-
             album["mid"]
-
             +
-
             ".jpg"
-
         )
-
-
-
-
-
-    audio = await get_play_url(
-
-        song_mid
-
-    )
-
-
 
 
 
     result = {
 
-
         "title":
-
         title,
 
-
         "singer":
-
         singer,
 
-
         "pic":
-
         pic,
 
-
         "url":
-
         f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
 
-
-
+        # 后续vkey获取播放地址
         "audio":
-
-        audio,
-
-
+        "",
 
         "songmid":
-
         song_mid
 
     }
 
 
-
-
     logger.info(
-
         f"QQ歌曲信息:{result}"
-
     )
 
 
     return result
-
-
-
-
-
 # =========================
 # QQ解析入口
 # =========================
@@ -575,23 +281,21 @@ async def parse_qq_card(text):
 
 
     logger.info(
-
         f"QQ卡片解析输入:{text}"
-
     )
 
 
-
     m = re.search(
-
         r"https?://[^\s]+",
-
         text
-
     )
 
 
     if not m:
+
+        logger.warning(
+            "没有找到QQ链接"
+        )
 
         return None
 
@@ -601,8 +305,9 @@ async def parse_qq_card(text):
 
 
 
-    try:
+    # 展开QQ短链
 
+    try:
 
         async with httpx.AsyncClient(
 
@@ -613,7 +318,6 @@ async def parse_qq_card(text):
             headers={
 
                 "User-Agent":
-
                 "Mozilla/5.0"
 
             }
@@ -622,38 +326,28 @@ async def parse_qq_card(text):
 
 
             r = await client.get(
-
                 url
-
             )
 
 
             real_url = str(
-
                 r.url
-
             )
-
 
 
     except Exception as e:
 
 
         logger.warning(
-
             f"QQ链接展开失败:{e}"
-
         )
 
         return None
 
 
 
-
     logger.info(
-
         f"QQ真实地址:{real_url}"
-
     )
 
 
@@ -662,7 +356,9 @@ async def parse_qq_card(text):
 
 
 
+    # =========================
     # songDetail
+    # =========================
 
     m = re.search(
 
@@ -679,23 +375,18 @@ async def parse_qq_card(text):
         value = m.group(1)
 
 
-        if value.isdigit():
+        # 重点：
+        # QQ新版数字songDetail不是songid
+        # 直接作为mid尝试
 
-            song_mid = await convert_songid_to_mid(
-
-                value
-
-            )
-
-        else:
-
-            song_mid = value
+        song_mid = value
 
 
 
 
-
-    # songmid
+    # =========================
+    # songmid参数
+    # =========================
 
     if not song_mid:
 
@@ -715,23 +406,15 @@ async def parse_qq_card(text):
             value = m.group(1)
 
 
-            if value.isdigit():
-
-                song_mid = await convert_songid_to_mid(
-
-                    value
-
-                )
-
-            else:
-
-                song_mid = value
+            song_mid = value
 
 
 
 
 
-    # songid
+    # =========================
+    # 老版songid参数
+    # =========================
 
     if not song_mid:
 
@@ -757,13 +440,12 @@ async def parse_qq_card(text):
 
 
 
+
     if not song_mid:
 
 
         logger.warning(
-
-            "无法获得songmid"
-
+            "无法获取songmid"
         )
 
         return None
@@ -780,8 +462,13 @@ async def parse_qq_card(text):
 
 
 
-    return await get_qq_song(
+
+    result = await get_qq_song(
 
         song_mid
 
     )
+
+
+
+    return result
