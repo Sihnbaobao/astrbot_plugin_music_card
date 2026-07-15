@@ -26,25 +26,22 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.9"
+    "0.2.0"
 )
 class MusicCardPlugin(Star):
 
+
     def __init__(self, context):
+
         super().__init__(context)
 
 
-    # =========================
-    # 网易云短链展开
-    # =========================
 
-    async def expand_netease_url(
-        self,
-        url
-    ):
+    async def expand_netease_url(self, url):
 
         if "163cn.tv" not in url:
             return url
+
 
         try:
 
@@ -53,13 +50,10 @@ class MusicCardPlugin(Star):
                 timeout=10
             ) as client:
 
-                r = await client.get(
-                    url
-                )
+                r = await client.get(url)
 
-                return str(
-                    r.url
-                )
+                return str(r.url)
+
 
         except Exception as e:
 
@@ -71,9 +65,9 @@ class MusicCardPlugin(Star):
 
 
 
-    # =========================
+    # ==========================
     # 发送消息
-    # =========================
+    # ==========================
 
     async def send_music(
         self,
@@ -91,16 +85,16 @@ class MusicCardPlugin(Star):
         except Exception as e:
 
             logger.error(
-                f"发送消息失败:{e}"
+                f"发送失败:{e}"
             )
 
             raise
 
 
 
-    # =========================
-    # 网易云音乐卡片
-    # =========================
+    # ==========================
+    # 网易云
+    # ==========================
 
     async def send_163(
         self,
@@ -108,23 +102,30 @@ class MusicCardPlugin(Star):
         song_id
     ):
 
-        message = [
 
+        message = {
+
+            "type":
+            "music",
+
+
+            "data":
             {
 
-                "type": "music",
+                "type":
+                "163",
 
-                "data": {
-
-                    "type": "163",
-
-                    "id": song_id
-
-                }
+                "id":
+                song_id
 
             }
 
-        ]
+        }
+
+
+        logger.info(
+            f"发送网易云:{message}"
+        )
 
 
         await self.send_music(
@@ -134,9 +135,9 @@ class MusicCardPlugin(Star):
 
 
 
-    # =========================
-    # QQ音乐custom卡片
-    # =========================
+    # ==========================
+    # QQ音乐
+    # ==========================
 
     async def send_qq_card(
         self,
@@ -144,66 +145,74 @@ class MusicCardPlugin(Star):
         qq
     ):
 
-        message = [
 
+        message = {
+
+            "type":
+            "music",
+
+
+            "data":
             {
 
-                "type": "music",
+                "type":
+                "custom",
 
-                "data": {
 
-                    "type": "custom",
+                "url":
+                qq.get(
+                    "url",
+                    ""
+                ),
 
-                    "url": qq.get(
-                        "url",
-                        ""
-                    ),
 
-                    "audio": qq.get(
-                        "audio",
-                        ""
-                    ),
+                "audio":
+                qq.get(
+                    "audio",
+                    ""
+                ),
 
-                    "image": qq.get(
-                        "pic",
-                        ""
-                    ),
 
-                    "title": qq.get(
-                        "title",
-                        "QQ音乐"
-                    ),
+                "image":
+                qq.get(
+                    "pic",
+                    ""
+                ),
 
-                    "content": qq.get(
-                        "singer",
-                        ""
-                    ),
 
-                    "summary": (
-                        qq.get(
-                            "singer",
-                            ""
-                        )
-                        +
-                        " - "
-                        +
-                        qq.get(
-                            "title",
-                            ""
-                        )
-                    ),
+                "title":
+                qq.get(
+                    "title",
+                    "QQ音乐"
+                ),
 
-                    "appid": "100497308"
 
-                }
+                "content":
+                qq.get(
+                    "singer",
+                    ""
+                ),
+
+
+                "summary":
+                f"{qq.get('singer','')} - {qq.get('title','')}",
+
+
+                "app":
+                "QQ音乐",
+
+
+                "appid":
+                "100497308"
 
             }
 
-        ]
+        }
+
 
 
         logger.info(
-            f"发送QQ音乐custom卡片:{message}"
+            f"发送QQ音乐custom:{message}"
         )
 
 
@@ -214,9 +223,10 @@ class MusicCardPlugin(Star):
 
 
 
-    # =========================
-    # 消息监听
-    # =========================
+
+    # ==========================
+    # 主监听
+    # ==========================
 
     @filter.event_message_type(
         filter.EventMessageType.ALL
@@ -241,9 +251,7 @@ class MusicCardPlugin(Star):
 
 
 
-        # =========================
         # 网易云
-        # =========================
 
         if (
             "music.163.com" in text
@@ -271,21 +279,23 @@ class MusicCardPlugin(Star):
 
 
             logger.info(
-                f"网易云展开:{url}"
+                f"网易云地址:{url}"
             )
 
 
-            song = re.search(
+
+            m = re.search(
                 r"id=(\d+)",
                 url
             )
 
 
-            if song:
+            if m:
+
 
                 await self.send_163(
                     event,
-                    song.group(1)
+                    m.group(1)
                 )
 
 
@@ -296,9 +306,9 @@ class MusicCardPlugin(Star):
 
 
 
-        # =========================
+
+
         # QQ音乐
-        # =========================
 
         if (
             "y.qq.com" in text
@@ -324,6 +334,7 @@ class MusicCardPlugin(Star):
             )
 
 
+
             if qq:
 
 
@@ -335,9 +346,11 @@ class MusicCardPlugin(Star):
 
             else:
 
+
                 logger.warning(
-                    "QQ音乐解析失败"
+                    "QQ解析失败"
                 )
+
 
 
             event.stop_event()
@@ -347,9 +360,8 @@ class MusicCardPlugin(Star):
 
 
 
-        # =========================
-        # 防止AI处理音乐链接
-        # =========================
+
+        # 防止AI处理
 
         if (
             "music.163.com" in text
@@ -362,6 +374,7 @@ class MusicCardPlugin(Star):
             or
             "i.y.qq.com" in text
         ):
+
 
             event.stop_event()
 
