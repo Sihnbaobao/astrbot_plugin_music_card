@@ -415,7 +415,7 @@ async def get_qq_song(song_mid):
 
         "audio":
 
-        f"https://i.y.qq.com/v8/playsong.html?songmid={song_mid}",
+        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a",
 
 
 
