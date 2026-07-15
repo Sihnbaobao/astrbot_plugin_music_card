@@ -197,22 +197,71 @@ async def get_playable_audio(song_mid):
 
     try:
 
-        info = data["req"]["data"]["midurlinfo"][0]
+        import json as _json
 
-        sip = data["req"]["data"]["sip"]
+        logger.info(
+            f"vkey原始响应:{_json.dumps(data, ensure_ascii=False)[:1000]}"
+        )
 
-        purl = info.get("purl", "")
+
+        found = None
+
+        for k, v in data.items():
+
+            if k == "comm":
+
+                continue
+
+            if isinstance(v, dict):
+
+                inner = v.get("data")
+
+                if isinstance(inner, dict) and "midurlinfo" in inner:
+
+                    found = inner
+
+                    logger.info(
+                        f"vkey命中key:{k}"
+                    )
+
+                    break
 
 
-        if purl and sip:
+        if found:
 
-            audio = sip[0] + purl
+            sip = found.get("sip", [])
 
-            logger.info(
-                f"vkey获取成功:{audio}"
+            infos = found.get("midurlinfo", [])
+
+            if infos and sip:
+
+                purl = infos[0].get("purl", "")
+
+                if purl:
+
+                    audio = sip[0] + purl
+
+                    logger.info(
+                        f"vkey获取成功:{audio}"
+                    )
+
+                    return audio
+
+                logger.warning(
+                    "vkey返回purl为空,可能歌曲无版权或需要登录"
+                )
+
+            else:
+
+                logger.warning(
+                    f"vkey无sip或midurlinfo:sip={sip} infos={infos}"
+                )
+
+        else:
+
+            logger.warning(
+                "vkey响应中未找到midurlinfo"
             )
-
-            return audio
 
     except Exception as e:
 
