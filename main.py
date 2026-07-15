@@ -1,43 +1,7 @@
 import re
-import json
 import os
-import importlib
 
 from astrbot.core import logger
-
-
-print("========== music_card 加载检查 ==========")
-
-print(
-    "main.py路径:",
-    os.path.abspath(__file__)
-)
-
-
-try:
-
-    qqmusic_module = importlib.import_module(
-        ".qqmusic",
-        __package__
-    )
-
-    print(
-        "qqmusic.py路径:",
-        os.path.abspath(
-            qqmusic_module.__file__
-        )
-    )
-
-except Exception as e:
-
-    print(
-        "qqmusic路径检测失败:",
-        e
-    )
-
-
-print("========================================")
-
 
 from astrbot.api.event import (
     filter,
@@ -49,15 +13,19 @@ from astrbot.api.star import (
     register
 )
 
-
-# 注意：
-# 删除 qqshare 导入
-# 不再使用 parse_qq_share
-
-from .qqmusic import parse_qq_music
-from .netease import search_netease
-
 import httpx
+
+
+
+print("========== music_card 加载检查 ==========")
+
+print(
+    "main.py路径:",
+    os.path.abspath(__file__)
+)
+
+print("========================================")
+
 
 
 
@@ -109,7 +77,7 @@ async def expand_netease_url(url):
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.1.8"
+    "0.1.9"
 )
 class MusicCardPlugin(Star):
 
@@ -117,6 +85,7 @@ class MusicCardPlugin(Star):
     def __init__(self, context):
 
         super().__init__(context)
+
 
 
 
@@ -177,13 +146,11 @@ class MusicCardPlugin(Star):
                 "type":
                 "music",
 
-
                 "data":
                 {
 
                     "type":
                     "163",
-
 
                     "id":
                     song_id
@@ -196,81 +163,19 @@ class MusicCardPlugin(Star):
 
 
         await self.send_music(
+
             event,
+
             message
+
         )
 
 
 
 
 
-    async def send_qq(
-        self,
-        event,
-        qq
-    ):
 
 
-        message = [
-
-            {
-
-                "type":
-                "music",
-
-
-                "data":
-                {
-
-                    "type":
-                    "custom",
-
-
-                    "url":
-                    qq.get(
-                        "url",
-                        ""
-                    ),
-
-
-                    "audio":
-                    qq.get(
-                        "audio",
-                        ""
-                    ),
-
-
-                    "image":
-                    qq.get(
-                        "pic",
-                        ""
-                    ),
-
-
-                    "title":
-                    qq.get(
-                        "title",
-                        "QQ音乐歌曲"
-                    ),
-
-
-                    "content":
-                    qq.get(
-                        "singer",
-                        ""
-                    )
-
-                }
-
-            }
-
-        ]
-
-
-        await self.send_music(
-            event,
-            message
-        )
     @filter.event_message_type(
         filter.EventMessageType.ALL
     )
@@ -297,23 +202,29 @@ class MusicCardPlugin(Star):
 
 
 
+
         # ==========================
-        # 网易云链接处理
+        # 网易云
         # ==========================
 
 
         if (
+
             "music.163.com" in text
+
             or
+
             "163cn.tv" in text
+
         ):
 
 
-            # 提取真正URL
-
             url_match = re.search(
+
                 r"https?://[^\s]+",
+
                 text
+
             )
 
 
@@ -327,27 +238,41 @@ class MusicCardPlugin(Star):
 
 
 
+
             logger.info(
+
                 f"网易云真实链接:{netease_url}"
+
             )
+
 
 
 
             netease_url = await expand_netease_url(
+
                 netease_url
+
             )
+
 
 
             logger.info(
+
                 f"网易云展开:{netease_url}"
+
             )
+
 
 
 
             m = re.search(
+
                 r"id=(\d+)",
+
                 netease_url
+
             )
+
 
 
             if m:
@@ -370,9 +295,9 @@ class MusicCardPlugin(Star):
 
 
 
-
         # ==========================
-        # QQ音乐处理
+        # QQ音乐
+        # 暂时交给 qqcard.py
         # ==========================
 
 
@@ -391,145 +316,9 @@ class MusicCardPlugin(Star):
         ):
 
 
-
-            qq = await parse_qq_music(
-
-                text
-
-            )
-
-
-
             logger.info(
 
-                "QQ解析结果: "
-
-                +
-
-                json.dumps(
-
-                    qq,
-
-                    ensure_ascii=False
-
-                )
-
-                if qq
-
-                else "null"
-
-            )
-
-
-
-
-            # QQ解析失败
-
-            if not qq:
-
-
-                logger.warning(
-                    "QQ音乐解析失败"
-                )
-
-
-                event.stop_event()
-
-                return
-
-
-
-
-
-
-            # ==========================
-            # 搜索网易云
-            # ==========================
-
-
-            try:
-
-
-                ne = await search_netease(
-
-                    qq.get(
-                        "title",
-                        ""
-                    ),
-
-                    qq.get(
-                        "singer",
-                        ""
-                    )
-
-                )
-
-
-            except Exception as e:
-
-
-                logger.exception(
-
-                    f"网易云搜索异常:{e}"
-
-                )
-
-
-                ne = None
-
-
-
-
-
-
-            if ne:
-
-
-                logger.info(
-
-                    f"网易云匹配成功:{ne}"
-
-                )
-
-
-
-                await self.send_163(
-
-                    event,
-
-                    ne["id"]
-
-                )
-
-
-                event.stop_event()
-
-                return
-
-
-
-
-
-
-            # ==========================
-            # 网易云失败
-            # 发送QQ卡片
-            # ==========================
-
-
-            logger.info(
-
-                "网易云没有匹配，发送QQ音乐卡片"
-
-            )
-
-
-
-            await self.send_qq(
-
-                event,
-
-                qq
+                "检测到QQ音乐，等待qqcard处理"
 
             )
 
@@ -542,11 +331,7 @@ class MusicCardPlugin(Star):
 
 
 
-
-        # ==========================
-        # 防止AI继续处理链接
-        # ==========================
-
+        # 防止链接进入AI
 
         if (
 
