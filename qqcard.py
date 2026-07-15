@@ -148,7 +148,10 @@ async def get_playable_audio(song_mid):
 
         "comm": {
             "ct": 24,
-            "cv": 0
+            "cv": 0,
+            "uin": 0,
+            "format": "json",
+            "platform": "20"
         },
 
         "req": {
@@ -162,7 +165,10 @@ async def get_playable_audio(song_mid):
                 "filename": [filename],
                 "guid": "10000",
                 "songmid": [song_mid],
-                "songtype": [0]
+                "songtype": [0],
+                "uin": "0",
+                "loginflag": 0,
+                "platform": "20"
             }
         }
 
@@ -175,7 +181,10 @@ async def get_playable_audio(song_mid):
             timeout=10,
             headers={
                 "User-Agent":
-                "Mozilla/5.0"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+
+                "Referer":
+                "https://y.qq.com/"
             }
         ) as client:
 
