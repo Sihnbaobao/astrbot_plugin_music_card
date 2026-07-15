@@ -263,8 +263,8 @@ class MusicCardPlugin(Star):
                     ),
 
 
-                    "app":
-                    "QQ音乐"
+                    "appid":
+                    "100497308"
 
                 }
 
