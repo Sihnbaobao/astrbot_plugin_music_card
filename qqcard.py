@@ -64,7 +64,7 @@ async def convert_songid_to_mid(songid):
     except Exception as e:
 
         logger.warning(
-            f"songid转换失败:{e}"
+            f"songid转换请求失败:{e}"
         )
 
         return None
@@ -121,8 +121,8 @@ async def get_qq_song(song_mid):
 
         "comm": {
 
-            "ct":24,
-            "cv":0
+            "ct": 24,
+            "cv": 0
 
         },
 
@@ -144,9 +144,7 @@ async def get_qq_song(song_mid):
     }
 
 
-
     try:
-
 
         async with httpx.AsyncClient(
 
@@ -184,7 +182,6 @@ async def get_qq_song(song_mid):
 
 
 
-
     try:
 
         track = (
@@ -203,6 +200,7 @@ async def get_qq_song(song_mid):
         )
 
         return None
+
 
 
 
@@ -257,26 +255,20 @@ async def get_qq_song(song_mid):
 
     result = {
 
-
         "title":
         title,
-
 
         "singer":
         singer,
 
-
         "pic":
         pic,
-
 
         "url":
         f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
 
-
         "audio":
         f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
-
 
         "songmid":
         song_mid
@@ -316,6 +308,10 @@ async def parse_qq_card(text):
 
     if not m:
 
+        logger.warning(
+            "没有找到QQ音乐链接"
+        )
+
         return None
 
 
@@ -353,6 +349,7 @@ async def parse_qq_card(text):
             )
 
 
+
     except Exception as e:
 
 
@@ -362,6 +359,7 @@ async def parse_qq_card(text):
 
 
         return None
+
 
 
 
@@ -375,7 +373,9 @@ async def parse_qq_card(text):
 
 
 
+    # =====================
     # songDetail/xxxx
+    # =====================
 
     m = re.search(
         r"songDetail/([0-9A-Za-z]+)",
@@ -385,24 +385,13 @@ async def parse_qq_card(text):
 
     if m:
 
-
-        value = m.group(1)
-
-
-        if value.isdigit():
-
-            song_mid = await convert_songid_to_mid(
-                value
-            )
-
-        else:
-
-            song_mid = value
+        song_mid = m.group(1)
 
 
 
-
+    # =====================
     # songmid=xxxx
+    # =====================
 
     if not song_mid:
 
@@ -415,24 +404,14 @@ async def parse_qq_card(text):
 
         if m:
 
-
-            value = m.group(1)
-
-
-            if value.isdigit():
-
-                song_mid = await convert_songid_to_mid(
-                    value
-                )
-
-            else:
-
-                song_mid = value
+            song_mid = m.group(1)
 
 
 
 
+    # =====================
     # songid=xxxx
+    # =====================
 
     if not song_mid:
 
@@ -444,7 +423,6 @@ async def parse_qq_card(text):
 
 
         if m:
-
 
             song_mid = await convert_songid_to_mid(
                 m.group(1)
