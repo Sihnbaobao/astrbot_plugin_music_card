@@ -131,6 +131,102 @@ async def convert_songid_to_mid(songid):
 
 
 # =========================
+# 获取可播放音频URL(vkey)
+# =========================
+
+async def get_playable_audio(song_mid):
+
+    logger.info(
+        f"获取vkey:{song_mid}"
+    )
+
+
+    filename = f"C400{song_mid}.m4a"
+
+
+    payload = {
+
+        "comm": {
+            "ct": 24,
+            "cv": 0
+        },
+
+        "req": {
+            "module":
+            "music.vkey.GetVkeyServer",
+
+            "method":
+            "GetVkey",
+
+            "param": {
+                "filename": [filename],
+                "guid": "10000",
+                "songmid": [song_mid],
+                "songtype": [0]
+            }
+        }
+
+    }
+
+
+    try:
+
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent":
+                "Mozilla/5.0"
+            }
+        ) as client:
+
+            r = await client.post(
+                QQ_API,
+                json=payload
+            )
+
+            data = r.json()
+
+    except Exception as e:
+
+        logger.warning(
+            f"vkey请求失败:{e}"
+        )
+
+        return None
+
+
+    try:
+
+        info = data["req"]["data"]["midurlinfo"][0]
+
+        sip = data["req"]["data"]["sip"]
+
+        purl = info.get("purl", "")
+
+
+        if purl and sip:
+
+            audio = sip[0] + purl
+
+            logger.info(
+                f"vkey获取成功:{audio}"
+            )
+
+            return audio
+
+    except Exception as e:
+
+        logger.warning(
+            f"vkey解析失败:{e}"
+        )
+
+
+    return None
+
+
+
+
+# =========================
 # 获取歌曲信息
 # =========================
 
@@ -307,6 +403,14 @@ async def get_qq_song(song_mid):
 
 
 
+    audio = await get_playable_audio(song_mid)
+
+
+    if not audio:
+
+        audio = f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66"
+
+
     result = {
 
 
@@ -327,7 +431,7 @@ async def get_qq_song(song_mid):
 
 
         "audio":
-        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
+        audio,
 
 
         "songmid":
