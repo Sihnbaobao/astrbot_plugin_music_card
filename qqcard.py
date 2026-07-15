@@ -331,7 +331,11 @@ async def get_qq_song(song_mid):
 
 
         "songmid":
-        song_mid
+        song_mid,
+
+
+        "song_id":
+        track.get("id", 0)
 
 
     }
