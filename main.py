@@ -51,6 +51,7 @@ from astrbot.api.star import (
 
 
 from .qqmusic import parse_qq_music
+from .qqshare import parse_qq_share
 from .netease import search_netease
 import httpx
 
@@ -461,13 +462,25 @@ class MusicCardPlugin(Star):
 
 
                 logger.warning(
-                    "QQ音乐解析失败"
+                    "QQ网页解析失败，尝试QQ分享解析"
                 )
 
 
-                event.stop_event()
+                qq = await parse_qq_share(text)
 
-                return
+
+
+                if not qq:
+
+
+                    logger.warning(
+                        "QQ分享也解析失败"
+                    )
+
+
+                    event.stop_event()
+
+                    return
 
 
 
