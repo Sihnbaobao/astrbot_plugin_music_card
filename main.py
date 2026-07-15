@@ -463,7 +463,7 @@ class MusicCardPlugin(Star):
 
             qq = await parse_qq_card(
 
-                event
+                text
 
             )
 
