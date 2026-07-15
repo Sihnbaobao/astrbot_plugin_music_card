@@ -170,7 +170,7 @@ class MusicCardPlugin(Star):
 
 
     # =========================
-    # QQ音乐 custom
+    # QQ音乐
     # =========================
 
     async def send_qq_card(
@@ -180,68 +180,105 @@ class MusicCardPlugin(Star):
     ):
 
 
-        message = [
-
-            {
-
-                "type":
-                "music",
+        song_id = qq.get(
+            "song_id",
+            0
+        )
 
 
-                "data":
+        if song_id:
+
+
+            message = [
+
                 {
 
                     "type":
-                    "custom",
+                    "music",
 
 
-                    "url":
-                    qq.get(
-                        "url",
-                        ""
-                    ),
+                    "data":
+                    {
+
+                        "type":
+                        "qq",
 
 
-                    "audio":
-                    qq.get(
-                        "audio",
-                        ""
-                    ),
+                        "id":
+                        str(song_id)
 
-
-                    "image":
-                    qq.get(
-                        "pic",
-                        ""
-                    ),
-
-
-                    "title":
-                    qq.get(
-                        "title",
-                        "QQ音乐"
-                    ),
-
-
-                    "content":
-                    qq.get(
-                        "singer",
-                        ""
-                    ),
-
-
-                    "app":
-                    "QQ音乐"
+                    }
 
                 }
 
-            }
+            ]
 
-        ]
+
+        else:
+
+
+            message = [
+
+                {
+
+                    "type":
+                    "music",
+
+
+                    "data":
+                    {
+
+                        "type":
+                        "custom",
+
+
+                        "url":
+                        qq.get(
+                            "url",
+                            ""
+                        ),
+
+
+                        "audio":
+                        qq.get(
+                            "audio",
+                            ""
+                        ),
+
+
+                        "image":
+                        qq.get(
+                            "pic",
+                            ""
+                        ),
+
+
+                        "title":
+                        qq.get(
+                            "title",
+                            "QQ音乐"
+                        ),
+
+
+                        "content":
+                        qq.get(
+                            "singer",
+                            ""
+                        ),
+
+
+                        "app":
+                        "QQ音乐"
+
+                    }
+
+                }
+
+            ]
 
 
         logger.info(
-            f"发送QQ custom:{message}"
+            f"发送QQ音乐卡片:{message}"
         )
 
 
