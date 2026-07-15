@@ -208,13 +208,9 @@ class MusicCardPlugin(Star):
 
 
     async def send_qq_card(
-
         self,
-
         event,
-
         qq
-
     ):
 
 
@@ -222,11 +218,10 @@ class MusicCardPlugin(Star):
 
             {
 
-                "type":
-                "music",
-
+                "type": "music",
 
                 "data":
+
                 {
 
                     "type":
@@ -265,7 +260,11 @@ class MusicCardPlugin(Star):
                     qq.get(
                         "singer",
                         ""
-                    )
+                    ),
+
+
+                    "app":
+                    "QQ音乐"
 
                 }
 
@@ -274,12 +273,14 @@ class MusicCardPlugin(Star):
         ]
 
 
+        logger.info(
+            f"发送QQ音乐custom卡片:{message}"
+        )
+
+
         await self.send_music(
-
             event,
-
             message
-
         )
 
 
