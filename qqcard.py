@@ -7,28 +7,66 @@ from astrbot.core import logger
 QQ_API = "https://u.y.qq.com/cgi-bin/musicu.fcg"
 
 
-_qq_uin = ""
+_qq_cookie = ""
 
-_qm_keyst = ""
+_qq_uin = 0
 
 
-def set_qq_credential(uin, qm_keyst):
+def set_qq_credential(cookie):
 
-    global _qq_uin, _qm_keyst
+    global _qq_cookie, _qq_uin
 
-    _qq_uin = uin or ""
+    _qq_cookie = (cookie or "").strip()
 
-    _qm_keyst = qm_keyst or ""
-
+    _qq_uin = _parse_cookie_uin(_qq_cookie)
 
     logger.info(
-        f"已设置QQ凭据:uin={_qq_uin}, qm_keyst长度={len(_qm_keyst)}"
+        f"已设置QQ凭据:cookie长度={len(_qq_cookie)}, uin={_qq_uin}"
     )
 
 
 def has_qq_credential():
 
-    return bool(_qq_uin and _qm_keyst)
+    return bool(_qq_cookie and _qq_uin)
+
+
+def _parse_cookie_uin(cookie):
+
+    if not cookie:
+
+        return 0
+
+    m = re.search(
+        r"(?:^|;|\s)uin=o(\d+)",
+        cookie
+    )
+
+    if m:
+
+        try:
+
+            return int(m.group(1))
+
+        except ValueError:
+
+            return 0
+
+    m = re.search(
+        r"(?:^|;|\s)wxuin=o(\d+)",
+        cookie
+    )
+
+    if m:
+
+        try:
+
+            return int(m.group(1))
+
+        except ValueError:
+
+            return 0
+
+    return 0
 
 
 # =========================
@@ -173,9 +211,9 @@ async def get_playable_audio(song_mid):
 
     comm_uin = (
 
-        int(_qq_uin)
+        _qq_uin
 
-        if logged_in and _qq_uin.isdigit()
+        if logged_in
 
         else 0
 
@@ -184,7 +222,7 @@ async def get_playable_audio(song_mid):
 
     param_uin = (
 
-        _qq_uin
+        str(_qq_uin)
 
         if logged_in
 
@@ -204,6 +242,9 @@ async def get_playable_audio(song_mid):
     )
 
 
+    platform = "h5" if logged_in else "20"
+
+
     payload = {
 
         "comm": {
@@ -211,7 +252,7 @@ async def get_playable_audio(song_mid):
             "cv": 0,
             "uin": comm_uin,
             "format": "json",
-            "platform": "20"
+            "platform": platform
         },
 
         "req": {
@@ -228,7 +269,7 @@ async def get_playable_audio(song_mid):
                 "songtype": [0],
                 "uin": param_uin,
                 "loginflag": loginflag,
-                "platform": "20"
+                "platform": platform
             }
         }
 
@@ -247,14 +288,10 @@ async def get_playable_audio(song_mid):
 
     if logged_in:
 
-        headers["Cookie"] = (
-
-            f"uin=o{_qq_uin}; "
-            f"qm_keyst={_qm_keyst}"
-        )
+        headers["Cookie"] = _qq_cookie
 
         logger.info(
-            "vkey请求以登录态发起"
+            f"vkey请求以登录态发起, uin={_qq_uin}"
         )
 
 

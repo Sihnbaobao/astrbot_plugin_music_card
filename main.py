@@ -30,7 +30,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.3.0"
+    "0.3.1"
 )
 class MusicCardPlugin(Star):
 
@@ -48,10 +48,10 @@ class MusicCardPlugin(Star):
             config = {}
 
 
-        uin = (
+        cookie = (
 
             config.get(
-                "qqmusic_uin",
+                "qqmusic_cookie",
                 ""
             )
 
@@ -62,25 +62,10 @@ class MusicCardPlugin(Star):
         ).strip()
 
 
-        qm_keyst = (
-
-            config.get(
-                "qqmusic_qm_keyst",
-                ""
-            )
-
-            or
-
-            ""
-
-        ).strip()
-
-
-        if uin and qm_keyst:
+        if cookie:
 
             set_qq_credential(
-                uin,
-                qm_keyst
+                cookie
             )
 
             logger.info(
