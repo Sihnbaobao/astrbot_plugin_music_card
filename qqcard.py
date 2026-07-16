@@ -27,7 +27,7 @@ def set_qq_credential(cookie):
 
 def has_qq_credential():
 
-    return bool(_qq_cookie and _qq_uin)
+    return bool(_qq_cookie and "qm_keyst=" in _qq_cookie)
 
 
 def _parse_cookie_uin(cookie):
@@ -37,7 +37,7 @@ def _parse_cookie_uin(cookie):
         return 0
 
     m = re.search(
-        r"(?:^|;|\s)uin=o(\d+)",
+        r"(?:^|;|\s)uin=o?(\d+)",
         cookie
     )
 
@@ -52,7 +52,7 @@ def _parse_cookie_uin(cookie):
             return 0
 
     m = re.search(
-        r"(?:^|;|\s)wxuin=o(\d+)",
+        r"(?:^|;|\s)wxuin=o?(\d+)",
         cookie
     )
 
