@@ -97,7 +97,7 @@ async def sign_qq_music_card(body):
             card_json = r.text.strip()
 
 
-logger.info(
+            logger.info(
                 f"签名服务返回长度:{len(card_json)}"
             )
 
