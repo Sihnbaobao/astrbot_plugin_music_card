@@ -1,34 +1,14 @@
-## v0.6.0
+## v2.0.0
 
-- 放弃外部签名服务，自建 `com.tencent.structmsg` 格式 Ark JSON 卡片
-- 封面图直接嵌入 `preview` 和 `source_icon` 字段（500x500）
-- 移除音频直链，卡片不再报"服务器异常"
-- 点击卡片跳转 QQ 音乐网页播放
+- QQ音乐链接改为搜网易云,找到即发 type:163 原生卡片(可点播+封面)
+- 删除所有无效代码: zzc_sign / vkey / QR登录 / OAuth / cookie
+- 代码精简: main.py ~140行 qqcard.py ~90行
 
-## v0.5.x
+## v1.x
 
-- 新增 QQ 音乐登录凭据配置（WebUI 填 Cookie）
-- QQ 音乐卡片改为三层策略：Arkk卡片 → 签名服务 → custom 回退
-- 签名服务支持 type:qq 和 type:custom（思思默认服务）
-- zzc_sign 签名算法实现（QQ 音乐 musics.fcg 接口）
+- 尝试多种方案(vkey/cookie/签名服务/QR登录),均因QQ音乐接口限制未能实现可点播
+- 改为网易云卡片搜索方案
 
-## v0.3.x
+## v0.x
 
-- 重构 send_qq_card：优先尝试原生 type:qq 卡片，失败回退 custom
-- QQ 音乐凭据支持手填完整 Cookie（WebUI textarea 配置）
-- song_id → songmid 转换、歌曲详情 API 调用
-
-## v0.2.1
-
-- 修复 vkey 调用函数内重复 import
-
-## v0.2.0
-
-- QQ 音乐歌曲信息 API 调用（标题/歌手/封面/songmid）
-- vkey 接口调用获取可播放音频直链
-- songid → songmid 转换
-
-## v0.1.0
-
-- 初始版本：网易云音乐链接转卡片（type:163）
-- QQ 音乐链接检测基础支持
+- 初始版本: 网易云链接转卡片, QQ音乐基础支持
