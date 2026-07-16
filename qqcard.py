@@ -1,10 +1,59 @@
 import re
 import httpx
 
+from base64 import b64encode
+from hashlib import sha1
+import json as _json
+import time as _time
+
 from astrbot.core import logger
 
 
 QQ_API = "https://u.y.qq.com/cgi-bin/musicu.fcg"
+
+
+QQ_API_NEW = "https://u6.y.qq.com/cgi-bin/musics.fcg"
+
+
+PART_1_INDEXES = [23, 14, 6, 36, 16, 7, 19]
+
+PART_2_INDEXES = [16, 1, 32, 12, 19, 27, 8, 5]
+
+SCRAMBLE_VALUES = [
+    89, 39, 179, 150, 218, 82, 58, 252, 177, 52,
+    186, 123, 120, 64, 242, 133, 143, 161, 121, 179,
+]
+
+
+def zzc_sign(payload):
+
+    if isinstance(payload, str):
+
+        payload_bytes = payload.encode("utf-8")
+
+    else:
+
+        payload_bytes = bytes(payload)
+
+    hash_hex = sha1(payload_bytes).hexdigest().upper()
+
+    part1 = "".join(hash_hex[i] for i in PART_1_INDEXES)
+
+    part2 = "".join(hash_hex[i] for i in PART_2_INDEXES)
+
+    part3 = bytearray(20)
+
+    for i, v in enumerate(SCRAMBLE_VALUES):
+
+        part3[i] = v ^ int(hash_hex[i * 2 : i * 2 + 2], 16)
+
+    b64_part = re.sub(
+        rb"[\\/+=]",
+        b"",
+        b64encode(part3)
+    ).decode("utf-8")
+
+    return f"zzc{part1}{b64_part}{part2}".lower()
 
 
 _qq_cookie = ""
@@ -282,7 +331,13 @@ async def get_playable_audio(song_mid):
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 
         "Referer":
-        "https://y.qq.com/"
+        "https://y.qq.com/",
+
+        "Origin":
+        "https://y.qq.com",
+
+        "Content-Type":
+        "application/x-www-form-urlencoded"
     }
 
 
@@ -295,6 +350,26 @@ async def get_playable_audio(song_mid):
         )
 
 
+    body_str = _json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":")
+    )
+
+    sign = zzc_sign(body_str)
+
+    url = (
+        f"{QQ_API_NEW}"
+        f"?_webcgikey=GetVkey"
+        f"&sign={sign}"
+        f"&_={int(_time.time() * 1000)}"
+    )
+
+    logger.info(
+        f"vkey请求URL:{url}"
+    )
+
+
     try:
 
         async with httpx.AsyncClient(
@@ -303,8 +378,8 @@ async def get_playable_audio(song_mid):
         ) as client:
 
             r = await client.post(
-                QQ_API,
-                json=payload
+                url,
+                data=body_str
             )
 
             data = r.json()
