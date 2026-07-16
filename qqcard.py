@@ -102,6 +102,13 @@ async def sign_qq_music_card(body):
             )
 
 
+            if len(card_json) > 50:
+
+                logger.info(
+                    f"Ark JSON 内容(前500):{card_json[:500]}"
+                )
+
+
             if r.status_code == 200 and card_json:
 
                 if len(card_json) < 20:
