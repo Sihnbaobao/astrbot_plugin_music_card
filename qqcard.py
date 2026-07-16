@@ -173,50 +173,54 @@ def set_sign_url(url):
 
 async def sign_qq_music_card(data):
 
-    url = data.get("url", "")
-    title = data.get("title", "QQ\u97f3\u4e50")
-    image = data.get("image", "")
-    singer = data.get("singer", "")
-
-
-    ark = {
-        "app": "com.tencent.structmsg",
-        "desc": "\u97f3\u4e50",
-        "view": "music",
-        "ver": "0.0.0.1",
-        "prompt": f"[{title}] {singer}",
-        "meta": {
-            "music": {
-                "action": "",
-                "android_pkg_name": "",
-                "app_type": 1,
-                "appid": 100495085,
-                "desc": singer,
-                "jumpUrl": url,
-                "musicUrl": url,
-                "preview": image,
-                "sourceMsgId": "0",
-                "source_icon": image,
-                "source_url": url,
-                "tag": "QQ\u97f3\u4e50",
-                "title": title
-            }
-        }
+    body = {
+        "type": "custom",
+        "url": data.get("url", ""),
+        "audio": "",
+        "title": data.get("title", "QQ\u97f3\u4e50"),
+        "image": data.get("image", ""),
+        "singer": data.get("singer", "")
     }
 
-
-    card_json = _json.dumps(
-        ark,
-        ensure_ascii=False,
-        separators=(",", ":")
-    )
-
-
     logger.info(
-        f"\u6784\u5efaArk\u5361\u7247:\u957f\u5ea6={len(card_json)}"
+        f"\u8c03\u7528\u7b7e\u540d\u670d\u52a1:{body}"
     )
 
-    return card_json
+    try:
+
+        async with httpx.AsyncClient(
+            timeout=15,
+            headers={
+                "Content-Type":
+                "application/json",
+
+                "User-Agent":
+                "Mozilla/5.0"
+            }
+        ) as client:
+
+            r = await client.post(
+                _sign_url,
+                json=body
+            )
+
+            r.raise_for_status()
+
+            text = r.text.strip()
+
+            logger.info(
+                f"\u7b7e\u540d\u670d\u52a1\u8fd4\u56de\u957f\u5ea6:{len(text)}"
+            )
+
+            return text
+
+    except Exception as e:
+
+        logger.warning(
+            f"\u7b7e\u540d\u670d\u52a1\u8c03\u7528\u5931\u8d25:{e}"
+        )
+
+        return None
 
 
 def _parse_cookie_uin(cookie):
