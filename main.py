@@ -23,7 +23,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "2.0.2"
+    "2.0.3"
 )
 class MusicCardPlugin(Star):
 

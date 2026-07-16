@@ -11,18 +11,25 @@ async def parse_kugou_card(text):
 
     url = m.group(0)
 
-    # 直接从原始文本提取 hash(片段不经过HTTP)
+    # 直接从原始文本提取 hash
     song_hash = None
+
+    # hash=XXX 格式
     m2 = re.search(r"[#&]hash=([0-9A-Fa-f]+)", text)
     if m2:
         song_hash = m2.group(1).upper()
 
-    # share页面的chain参数
+    # song/#XXX 格式(直连hash)
+    if not song_hash:
+        m2 = re.search(r"song/#([0-9A-Za-z]+)", text)
+        if m2:
+            song_hash = m2.group(1).upper()
+
+    # chain参数
     if not song_hash:
         m2 = re.search(r"chain=([0-9A-Za-z]+)", text)
         if m2:
             chain = m2.group(1)
-            # 先试试chain本身就是hash
             if re.match(r"^[0-9A-Fa-f]{32}$", chain):
                 song_hash = chain.upper()
 
