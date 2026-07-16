@@ -395,8 +395,6 @@ async def get_playable_audio(song_mid):
 
     try:
 
-        import json as _json
-
         logger.info(
             f"vkey原始响应:{_json.dumps(data, ensure_ascii=False)[:1000]}"
         )

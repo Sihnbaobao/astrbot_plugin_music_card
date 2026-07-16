@@ -30,7 +30,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.4.0"
+    "0.4.1"
 )
 class MusicCardPlugin(Star):
 
