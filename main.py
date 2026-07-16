@@ -1,5 +1,6 @@
 import re
 import os
+import asyncio
 import httpx
 
 from astrbot.core import logger
@@ -14,7 +15,12 @@ from astrbot.api.star import (
     register
 )
 
-from .qqcard import parse_qq_card
+from .qqcard import (
+    parse_qq_card,
+    create_qr_login,
+    check_qr_login,
+    exchange_code
+)
 
 
 print("========== music_card 加载检查 ==========")
@@ -26,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "1.2.0"
+    "1.3.0"
 )
 class MusicCardPlugin(Star):
 
@@ -254,6 +260,94 @@ class MusicCardPlugin(Star):
         logger.info(
             f"message_str:{text}"
         )
+
+
+
+        # =====================
+        # QQ音乐登录命令
+        # =====================
+
+        if text.strip().startswith("/qqmusic\u767b\u5f55"):
+
+            event.stop_event()
+
+
+            await self.send_music(
+                event,
+                [{"type": "text", "data": {"text": "\u6b63\u5728\u751f\u6210\u767b\u5f55\u4e8c\u7ef4\u7801..."}}]
+            )
+
+            qrcookie, qrsig, qr_png = await create_qr_login()
+
+            if not qrsig:
+                await self.send_music(
+                    event,
+                    [{"type": "text", "data": {"text": "\u751f\u6210\u4e8c\u7ef4\u7801\u5931\u8d25,\u8bf7\u7a0d\u540e\u91cd\u8bd5"}}]
+                )
+                return
+
+
+            from base64 import b64encode
+
+            b64_img = b64encode(qr_png).decode()
+
+            await self.send_music(
+                event,
+                [{"type": "image", "data": {"file": f"base64://{b64_img}", "type": "base64"}}]
+            )
+
+            await self.send_music(
+                event,
+                [{"type": "text", "data": {"text": "\u8bf7\u7528\u624b\u673aQQ\u626b\u63cf\u4e0a\u65b9\u4e8c\u7ef4\u7801\u767b\u5f55\uff0c\u6709\u6548\u671f120\u79d2\u3002"}}]
+            )
+
+
+            for i in range(60):
+
+                await asyncio.sleep(2)
+
+                status, info = await check_qr_login(qrsig)
+
+                if status == "ok":
+                    cookie_str, uin = await exchange_code(info)
+
+                    if cookie_str:
+                        await self.send_music(
+                            event,
+                            [{"type": "text", "data": {"text": f"\u767b\u5f55\u6210\u529f! uin={uin}"}}]
+                        )
+                    else:
+                        await self.send_music(
+                            event,
+                            [{"type": "text", "data": {"text": "\u767b\u5f55\u6210\u529f\u4f46cookie\u83b7\u53d6\u5931\u8d25,\u8bf7\u8bd5\u8bd5\u624b\u52a8\u7c98\u8d34cookie\u5230\u914d\u7f6e\u9879"}}]
+                        )
+                    return
+
+                elif status == "confirm":
+                    await self.send_music(
+                        event,
+                        [{"type": "text", "data": {"text": "\u5df2\u626b\u7801,\u8bf7\u5728\u624b\u673a\u4e0a\u786e\u8ba4\u767b\u5f55..."}}]
+                    )
+
+                elif status == "expired":
+                    await self.send_music(
+                        event,
+                        [{"type": "text", "data": {"text": "\u4e8c\u7ef4\u7801\u5df2\u8fc7\u671f,\u8bf7\u91cd\u65b0\u53d1\u9001 /qqmusic\u767b\u5f55"}}]
+                    )
+                    return
+
+                elif status == "scan":
+                    if i == 0:
+                        await self.send_music(
+                            event,
+                            [{"type": "text", "data": {"text": "\u68c0\u6d4b\u5230\u626b\u7801,\u8bf7\u5728\u624b\u673a\u4e0a\u786e\u8ba4..."}}]
+                        )
+
+            await self.send_music(
+                event,
+                [{"type": "text", "data": {"text": "\u767b\u5f55\u8d85\u65f6,\u8bf7\u91cd\u65b0\u53d1\u9001 /qqmusic\u767b\u5f55"}}]
+            )
+            return
 
 
 
