@@ -16,13 +16,14 @@ from astrbot.api.star import (
 
 from .qqcard import parse_qq_card
 from .netease import search_netease
+from .kugou import parse_kugou_card
 
 
 @register(
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "2.0.0"
+    "2.0.1"
 )
 class MusicCardPlugin(Star):
 
@@ -129,6 +130,23 @@ class MusicCardPlugin(Star):
             event.stop_event()
             return
 
+        # ---- 酷狗音乐 ----
+        if "kugou.com" in text:
+
+            kg = await parse_kugou_card(text)
+
+            if kg:
+                ne = await search_netease(kg["title"], kg["singer"])
+
+                if ne:
+                    logger.info(f"酷狗->网易云:{kg['title']}-{kg['singer']} -> id={ne['id']}")
+                    await self.send_netease_card(event, ne["id"])
+                    event.stop_event()
+                    return
+
+            event.stop_event()
+            return
+
         # 防止AI处理音乐链接
-        if any(k in text for k in ["music.163.com","163cn.tv","y.qq.com","c6.y.qq.com","i.y.qq.com"]):
+        if any(k in text for k in ["music.163.com","163cn.tv","y.qq.com","c6.y.qq.com","i.y.qq.com","kugou.com"]):
             event.stop_event()
