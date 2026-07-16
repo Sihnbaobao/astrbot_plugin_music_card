@@ -32,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.5.1"
+    "0.5.2"
 )
 class MusicCardPlugin(Star):
 
@@ -245,62 +245,10 @@ class MusicCardPlugin(Star):
     ):
 
 
-        song_id = qq.get(
-            "song_id",
-            0
-        )
-
-
         songmid = qq.get(
             "songmid",
             ""
         )
-
-
-        if songmid:
-
-            sign_body = {
-                "type": "qq",
-                "id": songmid
-            }
-
-            card_json = await sign_qq_music_card(
-                sign_body
-            )
-
-
-            if card_json:
-
-                message = [
-                    {
-                        "type": "json",
-                        "data": {
-                            "data": card_json
-                        }
-                    }
-                ]
-
-
-                logger.info(
-                    f"发送签名QQ音乐Ark卡片,长度={len(card_json)}"
-                )
-
-
-                try:
-
-                    await self.send_music(
-                        event,
-                        message
-                    )
-
-                    return
-
-                except Exception as e:
-
-                    logger.warning(
-                        f"Ark卡片发送失败回退custom:{e}"
-                    )
-
 
 
         if songmid:
@@ -319,7 +267,7 @@ class MusicCardPlugin(Star):
             )
 
 
-            if card_json:
+            if card_json and len(card_json) > 50:
 
                 message = [
                     {
@@ -332,7 +280,7 @@ class MusicCardPlugin(Star):
 
 
                 logger.info(
-                    f"发送签名QQ音乐custom Ark卡片,长度={len(card_json)}"
+                    f"发送QQ音乐Ark卡片,长度={len(card_json)}"
                 )
 
 
@@ -348,7 +296,7 @@ class MusicCardPlugin(Star):
                 except Exception as e:
 
                     logger.warning(
-                        f"custom Ark卡片发送失败回退原生custom:{e}"
+                        f"Ark卡片发送失败回退:{e}"
                     )
 
 
