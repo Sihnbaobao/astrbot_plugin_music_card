@@ -33,7 +33,9 @@ async def parse_kugou_card(text):
             if re.match(r"^[0-9A-Fa-f]{32}$", chain):
                 song_hash = chain.upper()
 
-    if not song_hash:
+    # 短码或未提取到hash,从页面HTML抓
+    if not song_hash or len(song_hash) < 32:
+        song_hash = None
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=10,
                                          headers={"User-Agent": "Mozilla/5.0"}) as c:
