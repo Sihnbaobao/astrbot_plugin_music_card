@@ -1,315 +1,11 @@
 import re
 import httpx
 
-from base64 import b64encode
-from hashlib import sha1
-import json as _json
-import time as _time
-
 from astrbot.core import logger
 
 
 QQ_API = "https://u.y.qq.com/cgi-bin/musicu.fcg"
 
-
-QQ_API_NEW = "https://u6.y.qq.com/cgi-bin/musics.fcg"
-
-
-PART_1_INDEXES = [23, 14, 6, 36, 16, 7, 19]
-
-PART_2_INDEXES = [16, 1, 32, 12, 19, 27, 8, 5]
-
-SCRAMBLE_VALUES = [
-    89, 39, 179, 150, 218, 82, 58, 252, 177, 52,
-    186, 123, 120, 64, 242, 133, 143, 161, 121, 179,
-]
-
-
-def zzc_sign(payload):
-
-    if isinstance(payload, str):
-
-        payload_bytes = payload.encode("utf-8")
-
-    else:
-
-        payload_bytes = bytes(payload)
-
-    hash_hex = sha1(payload_bytes).hexdigest().upper()
-
-    part1 = "".join(hash_hex[i] for i in PART_1_INDEXES)
-
-    part2 = "".join(hash_hex[i] for i in PART_2_INDEXES)
-
-    part3 = bytearray(20)
-
-    for i, v in enumerate(SCRAMBLE_VALUES):
-
-        part3[i] = v ^ int(hash_hex[i * 2 : i * 2 + 2], 16)
-
-    b64_part = re.sub(
-        rb"[\\/+=]",
-        b"",
-        b64encode(part3)
-    ).decode("utf-8")
-
-    return f"zzc{part1}{b64_part}{part2}".lower()
-
-
-_qq_cookie = ""
-
-_qq_uin = 0
-
-
-_CARD_SIGN_URL = "https://ss.xingzhige.com/music_card/card"
-
-
-def set_sign_url(url):
-
-    global _CARD_SIGN_URL
-
-    if url and url.strip():
-
-        _CARD_SIGN_URL = url.strip()
-
-    logger.info(
-        f"卡片签名服务:{_CARD_SIGN_URL}"
-    )
-
-
-async def sign_qq_music_card(body):
-
-    logger.info(
-        f"签名服务请求:{body}"
-    )
-
-    try:
-
-        async with httpx.AsyncClient(
-            timeout=10
-        ) as client:
-
-            r = await client.post(
-                _CARD_SIGN_URL,
-                json=body
-            )
-
-            card_json = r.text.strip()
-
-
-            logger.info(
-                f"签名服务返回长度:{len(card_json)}"
-            )
-
-
-            if len(card_json) > 50:
-
-                logger.info(
-                    f"Ark JSON 内容(前500):{card_json[:500]}"
-                )
-
-
-            if r.status_code == 200 and card_json:
-
-                if len(card_json) < 20:
-
-                    logger.warning(
-                        f"签名服务返回过短:{card_json}"
-                    )
-
-                    return None
-
-                return card_json
-
-
-            logger.warning(
-                f"签名服务异常:{r.status_code} {card_json[:200]}"
-            )
-
-
-    except Exception as e:
-
-        logger.warning(
-            f"签名服务调用失败:{e}"
-        )
-
-    return None
-
-
-def set_qq_credential(cookie):
-
-    global _qq_cookie, _qq_uin
-
-    _qq_cookie = (cookie or "").strip()
-
-    _qq_uin = _parse_cookie_uin(_qq_cookie)
-
-    logger.info(
-        f"已设置QQ凭据:cookie长度={len(_qq_cookie)}, uin={_qq_uin}"
-    )
-
-
-def has_qq_credential():
-
-    return bool(_qq_cookie and "qm_keyst=" in _qq_cookie)
-
-
-DEFAULT_SIGN_URL = "https://ss.xingzhige.com/music_card/card"
-
-
-_sign_url = DEFAULT_SIGN_URL
-
-
-def set_sign_url(url):
-
-    global _sign_url
-
-    _sign_url = (url or "").strip() or DEFAULT_SIGN_URL
-
-    logger.info(
-        f"已设置签名服务URL:{_sign_url}"
-    )
-
-
-async def sign_qq_music_card(data):
-
-    image_url = data.get("image", "")
-
-
-    image_b64 = ""
-
-    if image_url:
-
-        try:
-
-            async with httpx.AsyncClient(
-                timeout=10,
-                headers={
-                    "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-
-                    "Referer":
-                    "https://y.qq.com/"
-                }
-            ) as client:
-
-                r = await client.get(image_url)
-
-                if r.status_code == 200:
-
-                    image_b64 = "data:image/jpeg;base64," + b64encode(
-                        r.content
-                    ).decode("utf-8")
-
-                    logger.info(
-                        f"\u5c01\u9762\u4e0b\u8f7d\u6210\u529f,base64\u957f\u5ea6={len(image_b64)}"
-                    )
-
-                else:
-
-                    logger.warning(
-                        f"\u5c01\u9762\u4e0b\u8f7d\u5931\u8d25:{r.status_code}"
-                    )
-
-        except Exception as e:
-
-            logger.warning(
-                f"\u5c01\u9762\u4e0b\u8f7d\u5f02\u5e38:{e}"
-            )
-
-
-    body = {
-        "type": "custom",
-        "url": data.get("url", ""),
-        "audio": "",
-        "title": data.get("title", "QQ\u97f3\u4e50"),
-        "image": image_b64,
-        "singer": data.get("singer", "")
-    }
-
-    logger.info(
-        f"\u8c03\u7528\u7b7e\u540d\u670d\u52a1,image_b64={len(image_b64)}"
-    )
-
-    try:
-
-        async with httpx.AsyncClient(
-            timeout=15,
-            headers={
-                "Content-Type":
-                "application/json",
-
-                "User-Agent":
-                "Mozilla/5.0"
-            }
-        ) as client:
-
-            r = await client.post(
-                _sign_url,
-                json=body
-            )
-
-            r.raise_for_status()
-
-            text = r.text.strip()
-
-            logger.info(
-                f"\u7b7e\u540d\u670d\u52a1\u8fd4\u56de\u957f\u5ea6:{len(text)}"
-            )
-
-            return text
-
-    except Exception as e:
-
-        logger.warning(
-            f"\u7b7e\u540d\u670d\u52a1\u8c03\u7528\u5931\u8d25:{e}"
-        )
-
-        return None
-
-
-def _parse_cookie_uin(cookie):
-
-    if not cookie:
-
-        return 0
-
-    m = re.search(
-        r"(?:^|;|\s)uin=o?(\d+)",
-        cookie
-    )
-
-    if m:
-
-        try:
-
-            return int(m.group(1))
-
-        except ValueError:
-
-            return 0
-
-    m = re.search(
-        r"(?:^|;|\s)wxuin=o?(\d+)",
-        cookie
-    )
-
-    if m:
-
-        try:
-
-            return int(m.group(1))
-
-        except ValueError:
-
-            return 0
-
-    return 0
-
-
-# =========================
-# songid 转 songmid
-# =========================
 
 async def convert_songid_to_mid(songid):
 
@@ -430,241 +126,6 @@ async def convert_songid_to_mid(songid):
 
 
 
-# =========================
-# 获取可播放音频URL(vkey)
-# =========================
-
-async def get_playable_audio(song_mid):
-
-    logger.info(
-        f"获取vkey:{song_mid}"
-    )
-
-
-    filename = f"C400{song_mid}.m4a"
-
-
-    logged_in = has_qq_credential()
-
-
-    comm_uin = (
-
-        _qq_uin
-
-        if logged_in
-
-        else 0
-
-    )
-
-
-    param_uin = (
-
-        str(_qq_uin)
-
-        if logged_in
-
-        else "0"
-
-    )
-
-
-    loginflag = (
-
-        1
-
-        if logged_in
-
-        else 0
-
-    )
-
-
-    platform = "h5" if logged_in else "20"
-
-
-    payload = {
-
-        "comm": {
-            "ct": 24,
-            "cv": 0,
-            "uin": comm_uin,
-            "format": "json",
-            "platform": platform
-        },
-
-        "req": {
-            "module":
-            "music.vkey.GetVkeyServer",
-
-            "method":
-            "GetVkey",
-
-            "param": {
-                "filename": [filename],
-                "guid": "10000",
-                "songmid": [song_mid],
-                "songtype": [0],
-                "uin": param_uin,
-                "loginflag": loginflag,
-                "platform": platform
-            }
-        }
-
-    }
-
-
-    headers = {
-
-        "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-
-        "Referer":
-        "https://y.qq.com/",
-
-        "Origin":
-        "https://y.qq.com",
-
-        "Content-Type":
-        "application/x-www-form-urlencoded"
-    }
-
-
-    if logged_in:
-
-        headers["Cookie"] = _qq_cookie
-
-        logger.info(
-            f"vkey请求以登录态发起, uin={_qq_uin}"
-        )
-
-
-    body_str = _json.dumps(
-        payload,
-        ensure_ascii=False,
-        separators=(",", ":")
-    )
-
-    sign = zzc_sign(body_str)
-
-    url = (
-        f"{QQ_API_NEW}"
-        f"?_webcgikey=GetVkey"
-        f"&sign={sign}"
-        f"&_={int(_time.time() * 1000)}"
-    )
-
-    logger.info(
-        f"vkey请求URL:{url}"
-    )
-
-
-    try:
-
-        async with httpx.AsyncClient(
-            timeout=10,
-            headers=headers
-        ) as client:
-
-            r = await client.post(
-                url,
-                data=body_str
-            )
-
-            data = r.json()
-
-    except Exception as e:
-
-        logger.warning(
-            f"vkey请求失败:{e}"
-        )
-
-        return None
-
-
-    try:
-
-        logger.info(
-            f"vkey原始响应:{_json.dumps(data, ensure_ascii=False)[:1000]}"
-        )
-
-
-        found = None
-
-        for k, v in data.items():
-
-            if k == "comm":
-
-                continue
-
-            if isinstance(v, dict):
-
-                inner = v.get("data")
-
-                if isinstance(inner, dict) and "midurlinfo" in inner:
-
-                    found = inner
-
-                    logger.info(
-                        f"vkey命中key:{k}"
-                    )
-
-                    break
-
-
-        if found:
-
-            sip = found.get("sip", [])
-
-            infos = found.get("midurlinfo", [])
-
-            if infos and sip:
-
-                purl = infos[0].get("purl", "")
-
-                if purl:
-
-                    audio = sip[0] + purl
-
-                    logger.info(
-                        f"vkey获取成功:{audio}"
-                    )
-
-                    return audio
-
-                logger.warning(
-                    "vkey返回purl为空,可能歌曲无版权或需要登录"
-                )
-
-            else:
-
-                logger.warning(
-                    f"vkey无sip或midurlinfo:sip={sip} infos={infos}"
-                )
-
-        else:
-
-            logger.warning(
-                "vkey响应中未找到midurlinfo"
-            )
-
-    except Exception as e:
-
-        logger.warning(
-            f"vkey解析失败:{e}"
-        )
-
-
-    return None
-
-
-
-
-# =========================
-# 获取歌曲信息
-# =========================
-
-
 async def get_qq_song(song_mid):
 
 
@@ -781,7 +242,6 @@ async def get_qq_song(song_mid):
 
 
 
-
     title = track.get(
         "name",
         ""
@@ -837,9 +297,6 @@ async def get_qq_song(song_mid):
 
 
 
-    audio = f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66"
-
-
     result = {
 
 
@@ -860,7 +317,7 @@ async def get_qq_song(song_mid):
 
 
         "audio":
-        audio,
+        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
 
 
         "songmid":
@@ -885,12 +342,6 @@ async def get_qq_song(song_mid):
 
 
 
-
-
-
-# =========================
-# QQ链接解析
-# =========================
 
 
 async def parse_qq_card(text):
@@ -972,11 +423,6 @@ async def parse_qq_card(text):
 
 
 
-    # =========================
-    # songDetail
-    # =========================
-
-
     m = re.search(
         r"songDetail/([0-9A-Za-z]+)",
         real_url
@@ -1007,11 +453,6 @@ async def parse_qq_card(text):
 
 
 
-    # =========================
-    # songmid
-    # =========================
-
-
     if not song_mid:
 
 
@@ -1028,11 +469,6 @@ async def parse_qq_card(text):
 
 
 
-
-
-    # =========================
-    # songid
-    # =========================
 
 
     if not song_mid:

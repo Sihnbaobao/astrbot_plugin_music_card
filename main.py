@@ -14,13 +14,7 @@ from astrbot.api.star import (
     register
 )
 
-from .qqcard import (
-    parse_qq_card,
-    set_qq_credential,
-    has_qq_credential,
-    sign_qq_music_card,
-    set_sign_url
-)
+from .qqcard import parse_qq_card
 
 
 print("========== music_card 加载检查 ==========")
@@ -32,7 +26,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.6.2"
+    "1.0.0"
 )
 class MusicCardPlugin(Star):
 
@@ -43,60 +37,6 @@ class MusicCardPlugin(Star):
     ):
 
         super().__init__(context)
-
-
-        if config is None:
-
-            config = {}
-
-
-        cookie = (
-
-            config.get(
-                "qqmusic_cookie",
-                ""
-            )
-
-            or
-
-            ""
-
-        ).strip()
-
-
-        if cookie:
-
-            set_qq_credential(
-                cookie
-            )
-
-            logger.info(
-                "已加载QQ音乐登录凭据"
-            )
-
-
-        else:
-
-            logger.info(
-                "未配置QQ音乐登录凭据,匿名模式"
-            )
-
-
-        sign_url = (
-
-            config.get(
-                "qqmusic_sign_url",
-                ""
-            )
-
-            or
-
-            ""
-
-        ).strip()
-
-
-        set_sign_url(sign_url)
 
 
     async def expand_netease_url(
@@ -245,118 +185,35 @@ class MusicCardPlugin(Star):
     ):
 
 
-        songmid = qq.get(
-            "songmid",
-            ""
-        )
-
-
-        if songmid:
-
-            sign_body = {
-                "type": "custom",
-                "url": qq.get("url", ""),
-                "title": qq.get("title", "QQ音乐"),
-                "image": qq.get("pic", ""),
-                "singer": qq.get("singer", "")
-            }
-
-            card_json = await sign_qq_music_card(
-                sign_body
-            )
-
-
-            if card_json and len(card_json) > 50:
-
-                message = [
-                    {
-                        "type": "json",
-                        "data": {
-                            "data": card_json
-                        }
-                    }
-                ]
-
-
-                logger.info(
-                    f"发送QQ音乐Ark卡片,长度={len(card_json)}"
-                )
-
-
-                try:
-
-                    await self.send_music(
-                        event,
-                        message
-                    )
-
-                    return
-
-                except Exception as e:
-
-                    logger.warning(
-                        f"Ark卡片发送失败回退:{e}"
-                    )
-
-
-
         message = [
-
             {
-
                 "type":
                 "music",
 
-
                 "data":
                 {
-
                     "type":
                     "custom",
 
-
                     "url":
-                    qq.get(
-                        "url",
-                        ""
-                    ),
-
+                    qq.get("url", ""),
 
                     "audio":
-                    qq.get(
-                        "audio",
-                        ""
-                    ),
-
+                    qq.get("audio", ""),
 
                     "image":
-                    qq.get(
-                        "pic",
-                        ""
-                    ),
-
+                    qq.get("pic", ""),
 
                     "title":
-                    qq.get(
-                        "title",
-                        "QQ音乐"
-                    ),
-
+                    qq.get("title", "QQ音乐"),
 
                     "content":
-                    qq.get(
-                        "singer",
-                        ""
-                    ),
-
+                    qq.get("singer", ""),
 
                     "app":
                     "QQ音乐"
-
                 }
-
             }
-
         ]
 
 
