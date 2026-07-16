@@ -32,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "1.3.1"
+    "1.3.2"
 )
 class MusicCardPlugin(Star):
 
@@ -271,18 +271,12 @@ class MusicCardPlugin(Star):
 
             event.stop_event()
 
-
-            await self.send_music(
-                event,
-                [{"type": "text", "data": {"text": "\u6b63\u5728\u751f\u6210\u767b\u5f55\u4e8c\u7ef4\u7801..."}}]
-            )
-
             qrcookie, qrsig, qr_png = await create_qr_login()
 
             if not qrsig:
                 await self.send_music(
                     event,
-                    [{"type": "text", "data": {"text": "\u751f\u6210\u4e8c\u7ef4\u7801\u5931\u8d25,\u8bf7\u7a0d\u540e\u91cd\u8bd5"}}]
+                    [{"type": "text", "data": {"text": "\u751f\u6210\u5931\u8d25,\u8bf7\u91cd\u8bd5"}}]
                 )
                 return
 
@@ -291,15 +285,32 @@ class MusicCardPlugin(Star):
 
             b64_img = b64encode(qr_png).decode()
 
-            await self.send_music(
-                event,
-                [{"type": "image", "data": {"file": f"base64://{b64_img}", "type": "base64"}}]
-            )
+            try:
+                await self.send_music(
+                    event,
+                    [{"type": "image", "data": {"file": f"base64://{b64_img}"}}]
+                )
+                await self.send_music(
+                    event,
+                    [{"type": "text", "data": {"text": "\u8bf7\u7528\u624b\u673aQQ\u626b\u7801\u767b\u5f55\uff0c120\u79d2\u6709\u6548"}}]
+                )
+            except Exception as e:
+                logger.warning(f"QR\u56fe\u7247\u53d1\u9001\u5931\u8d25:{e}")
+                qr_url = (
+                    "https://ssl.ptlogin2.qq.com/ptqrshow"
+                    "?appid=716027609&e=2&l=M&s=3&d=72&v=4"
+                    "&daid=383&pt_3rd_aid=100497308"
+                )
+                await self.send_music(
+                    event,
+                    [{"type": "text", "data": {"text": (
+                        "\u8bf7\u5728\u6d4f\u89c8\u5668\u6253\u5f00\u6b64\u94fe\u63a5\u67e5\u770b\u4e8c\u7ef4\u7801\uff0c"
+                        "\u7136\u540e\u7528\u624b\u673aQQ\u626b\u63cf\uff1a\n" + qr_url
+                    )}}]
+                )
 
-            await self.send_music(
-                event,
-                [{"type": "text", "data": {"text": "\u8bf7\u7528\u624b\u673aQQ\u626b\u63cf\u4e0a\u65b9\u4e8c\u7ef4\u7801\u767b\u5f55\uff0c\u6709\u6548\u671f120\u79d2\u3002"}}]
-            )
+
+            logger.info("\u5f00\u59cb\u8f6e\u8be2\u767b\u5f55\u72b6\u6001...")
 
 
             for i in range(60):
