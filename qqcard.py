@@ -97,11 +97,20 @@ async def sign_qq_music_card(body):
             card_json = r.text.strip()
 
 
-            logger.info(
-                f"签名服务响应:code={r.status_code}, 长度={len(card_json)}"
+logger.info(
+                f"签名服务返回长度:{len(card_json)}"
             )
 
+
             if r.status_code == 200 and card_json:
+
+                if len(card_json) < 20:
+
+                    logger.warning(
+                        f"签名服务返回过短:{card_json}"
+                    )
+
+                    return None
 
                 return card_json
 

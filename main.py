@@ -32,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.5.0"
+    "0.5.1"
 )
 class MusicCardPlugin(Star):
 
@@ -257,11 +257,11 @@ class MusicCardPlugin(Star):
         )
 
 
-        if song_id:
+        if songmid:
 
             sign_body = {
                 "type": "qq",
-                "id": str(song_id)
+                "id": songmid
             }
 
             card_json = await sign_qq_music_card(
