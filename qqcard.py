@@ -295,6 +295,35 @@ async def get_qq_song(song_mid):
 
 
 
+    audio = (
+
+        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a"
+        f"?guid=10000&uin=0&fromtag=66"
+    )
+
+
+    try:
+
+        from qqmusic_api.song import Song
+
+        song = Song(mid=song_mid)
+
+        play_url = await song.get_play_url()
+
+        if play_url:
+
+            audio = play_url
+
+            logger.info(
+                f"QQMusicApi播放URL获取成功:{audio[:80]}..."
+            )
+
+    except Exception as e:
+
+        logger.warning(
+            f"QQMusicApi获取失败,用默认URL:{e}"
+        )
+
 
 
     result = {
@@ -317,7 +346,7 @@ async def get_qq_song(song_mid):
 
 
         "audio":
-        f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
+        audio,
 
 
         "songmid":
