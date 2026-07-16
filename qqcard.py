@@ -173,51 +173,50 @@ def set_sign_url(url):
 
 async def sign_qq_music_card(data):
 
-    url = _sign_url
+    url = data.get("url", "")
+    title = data.get("title", "QQ\u97f3\u4e50")
+    image = data.get("image", "")
+    singer = data.get("singer", "")
 
-    logger.info(
-        f"调用签名服务:{url}, body={data}"
+
+    ark = {
+        "app": "com.tencent.structmsg",
+        "desc": "\u97f3\u4e50",
+        "view": "music",
+        "ver": "0.0.0.1",
+        "prompt": f"[{title}] {singer}",
+        "meta": {
+            "music": {
+                "action": "",
+                "android_pkg_name": "",
+                "app_type": 1,
+                "appid": 100495085,
+                "desc": singer,
+                "jumpUrl": url,
+                "musicUrl": url,
+                "preview": image,
+                "sourceMsgId": "0",
+                "source_icon": image,
+                "source_url": url,
+                "tag": "QQ\u97f3\u4e50",
+                "title": title
+            }
+        }
+    }
+
+
+    card_json = _json.dumps(
+        ark,
+        ensure_ascii=False,
+        separators=(",", ":")
     )
 
 
-    try:
+    logger.info(
+        f"\u6784\u5efaArk\u5361\u7247:\u957f\u5ea6={len(card_json)}"
+    )
 
-        async with httpx.AsyncClient(
-            timeout=15,
-            headers={
-                "Content-Type":
-                "application/json",
-
-                "User-Agent":
-                "Mozilla/5.0"
-            }
-        ) as client:
-
-            r = await client.post(
-                url,
-                json=data
-            )
-
-            r.raise_for_status()
-
-            text = r.text.strip()
-
-            logger.info(
-                f"签名服务返回长度:{len(text)}"
-            )
-
-
-            return text
-
-
-    except Exception as e:
-
-        logger.warning(
-            f"签名服务调用失败:{e}"
-        )
-
-
-        return None
+    return card_json
 
 
 def _parse_cookie_uin(cookie):
