@@ -61,6 +61,65 @@ _qq_cookie = ""
 _qq_uin = 0
 
 
+_CARD_SIGN_URL = "https://ss.xingzhige.com/music_card/card"
+
+
+def set_sign_url(url):
+
+    global _CARD_SIGN_URL
+
+    if url and url.strip():
+
+        _CARD_SIGN_URL = url.strip()
+
+    logger.info(
+        f"卡片签名服务:{_CARD_SIGN_URL}"
+    )
+
+
+async def sign_qq_music_card(body):
+
+    logger.info(
+        f"签名服务请求:{body}"
+    )
+
+    try:
+
+        async with httpx.AsyncClient(
+            timeout=10
+        ) as client:
+
+            r = await client.post(
+                _CARD_SIGN_URL,
+                json=body
+            )
+
+            card_json = r.text.strip()
+
+
+            logger.info(
+                f"签名服务响应:code={r.status_code}, 长度={len(card_json)}"
+            )
+
+            if r.status_code == 200 and card_json:
+
+                return card_json
+
+
+            logger.warning(
+                f"签名服务异常:{r.status_code} {card_json[:200]}"
+            )
+
+
+    except Exception as e:
+
+        logger.warning(
+            f"签名服务调用失败:{e}"
+        )
+
+    return None
+
+
 def set_qq_credential(cookie):
 
     global _qq_cookie, _qq_uin
@@ -77,6 +136,72 @@ def set_qq_credential(cookie):
 def has_qq_credential():
 
     return bool(_qq_cookie and "qm_keyst=" in _qq_cookie)
+
+
+DEFAULT_SIGN_URL = "https://ss.xingzhige.com/music_card/card"
+
+
+_sign_url = DEFAULT_SIGN_URL
+
+
+def set_sign_url(url):
+
+    global _sign_url
+
+    _sign_url = (url or "").strip() or DEFAULT_SIGN_URL
+
+    logger.info(
+        f"已设置签名服务URL:{_sign_url}"
+    )
+
+
+async def sign_qq_music_card(data):
+
+    url = _sign_url
+
+    logger.info(
+        f"调用签名服务:{url}, body={data}"
+    )
+
+
+    try:
+
+        async with httpx.AsyncClient(
+            timeout=15,
+            headers={
+                "Content-Type":
+                "application/json",
+
+                "User-Agent":
+                "Mozilla/5.0"
+            }
+        ) as client:
+
+            r = await client.post(
+                url,
+                json=data
+            )
+
+            r.raise_for_status()
+
+            text = r.text.strip()
+
+            logger.info(
+                f"签名服务返回长度:{len(text)}"
+            )
+
+
+            return text
+
+
+    except Exception as e:
+
+        logger.warning(
+            f"签名服务调用失败:{e}"
+        )
+
+
+        return None
 
 
 def _parse_cookie_uin(cookie):

@@ -17,7 +17,9 @@ from astrbot.api.star import (
 from .qqcard import (
     parse_qq_card,
     set_qq_credential,
-    has_qq_credential
+    has_qq_credential,
+    sign_qq_music_card,
+    set_sign_url
 )
 
 
@@ -30,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.4.1"
+    "0.5.0"
 )
 class MusicCardPlugin(Star):
 
@@ -78,6 +80,23 @@ class MusicCardPlugin(Star):
             logger.info(
                 "未配置QQ音乐登录凭据,匿名模式"
             )
+
+
+        sign_url = (
+
+            config.get(
+                "qqmusic_sign_url",
+                ""
+            )
+
+            or
+
+            ""
+
+        ).strip()
+
+
+        set_sign_url(sign_url)
 
 
     async def expand_netease_url(
@@ -232,57 +251,105 @@ class MusicCardPlugin(Star):
         )
 
 
+        songmid = qq.get(
+            "songmid",
+            ""
+        )
+
+
         if song_id:
 
+            sign_body = {
+                "type": "qq",
+                "id": str(song_id)
+            }
 
-            try:
+            card_json = await sign_qq_music_card(
+                sign_body
+            )
 
+
+            if card_json:
 
                 message = [
-
                     {
-
-                        "type":
-                        "music",
-
-
-                        "data":
-                        {
-
-                            "type":
-                            "qq",
-
-
-                            "id":
-                            str(song_id)
-
+                        "type": "json",
+                        "data": {
+                            "data": card_json
                         }
-
                     }
-
                 ]
 
 
                 logger.info(
-                    f"尝试发送原生QQ音乐卡片:{message}"
+                    f"发送签名QQ音乐Ark卡片,长度={len(card_json)}"
                 )
 
 
-                await self.send_music(
-                    event,
-                    message
+                try:
+
+                    await self.send_music(
+                        event,
+                        message
+                    )
+
+                    return
+
+                except Exception as e:
+
+                    logger.warning(
+                        f"Ark卡片发送失败回退custom:{e}"
+                    )
+
+
+
+        if songmid:
+
+            sign_body = {
+                "type": "custom",
+                "url": qq.get("url", ""),
+                "audio": qq.get("audio", ""),
+                "title": qq.get("title", "QQ音乐"),
+                "image": qq.get("pic", ""),
+                "singer": qq.get("singer", "")
+            }
+
+            card_json = await sign_qq_music_card(
+                sign_body
+            )
+
+
+            if card_json:
+
+                message = [
+                    {
+                        "type": "json",
+                        "data": {
+                            "data": card_json
+                        }
+                    }
+                ]
+
+
+                logger.info(
+                    f"发送签名QQ音乐custom Ark卡片,长度={len(card_json)}"
                 )
 
 
-                return
+                try:
 
+                    await self.send_music(
+                        event,
+                        message
+                    )
 
-            except Exception as e:
+                    return
 
+                except Exception as e:
 
-                logger.warning(
-                    f"原生QQ音乐卡片发送失败,回退custom:{e}"
-                )
+                    logger.warning(
+                        f"custom Ark卡片发送失败回退原生custom:{e}"
+                    )
 
 
 
