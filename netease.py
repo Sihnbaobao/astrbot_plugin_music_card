@@ -1,102 +1,55 @@
 import httpx
-import urllib.parse
+
+from astrbot.core import logger
 
 
-async def search_netease(
-    title,
-    singer=""
-):
+async def search_netease(title, singer=""):
 
     try:
 
-        keyword = (
-            title
-            +
-            " "
-            +
-            singer
-        )
-
-
-        url = (
-            "https://music.163.com/api/search/get/web"
-            "?csrf_token="
-        )
-
-
-        params = {
-
-            "s": keyword,
-
-            "type": 1,
-
-            "offset": 0,
-
-            "limit": 5
-
-        }
-
-
-        headers = {
-
-            "User-Agent":
-            "Mozilla/5.0"
-
-        }
+        keyword = f"{title} {singer}"
 
 
         async with httpx.AsyncClient(
-            timeout=10
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"}
         ) as client:
 
 
             r = await client.get(
-                url,
-                params=params,
-                headers=headers
+                "https://music.163.com/api/search/get/web",
+                params={
+                    "s": keyword,
+                    "type": 1,
+                    "offset": 0,
+                    "limit": 5,
+                    "csrf_token": ""
+                }
             )
 
 
-            data = r.json()
+            songs = (
+                r.json()
+                .get("result", {})
+                .get("songs", [])
+            )
 
 
-
-        songs = (
-            data
-            .get("result", {})
-            .get("songs", [])
-        )
+            if not songs:
+                return None
 
 
-        if not songs:
-
-            return None
+            song = songs[0]
 
 
-
-        song = songs[0]
-
-
-        return {
-
-            "id":
-            str(song["id"]),
-
-
-            "name":
-            song["name"]
-
-        }
+            return {
+                "id": str(song["id"]),
+                "name": song["name"]
+            }
 
 
 
     except Exception as e:
 
-
-        print(
-            "网易云搜索失败:",
-            repr(e)
-        )
-
-
+        logger.warning(f"网易云搜索失败:{e}")
         return None

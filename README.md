@@ -1,30 +1,33 @@
-# 音乐卡片插件 (AstrBot)
+# 音乐链接转网易云卡片
 
-自动将 QQ音乐 / 网易云音乐 链接转为 OneBot 音乐卡片。
+将 QQ音乐 / 酷狗 / 网易云 链接自动转为网易云原生音乐卡片（`type:"163"`），支持点击播放 + 专辑封面。
 
 ## 效果
 
-- **网易云链接** → 原生 `type:"163"` 卡片，可点击播放 + 专辑封面
-- **QQ音乐链接** → 自动搜网易云同款歌曲，找到即发 `type:"163"` 卡片，没找到发 custom 卡片
+- **网易云链接** → 原生卡片（可点播 + 封面）
+- **QQ音乐链接** → 提取歌名歌手 → 搜网易云 → 发网易云卡片
+- **酷狗分享链接** → 同上（支持 `chain=` 和 `share/` 格式）
 
 ## 安装
 
-WebUI 插件管理 → 仓库安装：
+AstrBot WebUI → 插件管理 → 仓库地址：
 ```
 https://github.com/Sihnbaobao/astrbot_plugin_music_card
 ```
 
 ## 使用
 
-群聊/私聊直接发音乐链接即可:
+直接发链接即可，无需命令：
 
-```
-https://music.163.com/song?id=123456
-https://y.qq.com/n/ryqq/songDetail/xxx
-https://i.y.qq.com/v8/playsong.html?songid=123456
-```
+| 平台 | 示例链接 |
+|---|---|
+| 网易云 | `https://music.163.com/song?id=123456` |
+| QQ音乐 | `https://y.qq.com/n/ryqq/songDetail/xxx` |
+| QQ音乐 | `https://i.y.qq.com/v8/playsong.html?songid=xxx` |
+| 酷狗 | `https://m.kugou.com/share/song.html?chain=xxx` |
 
 ## 环境
 
 - AstrBot >= 4.26
-- aiocqhttp + NapCatQQ (OneBot v11)
+- aiocqhttp + NapCatQQ / LLOneBot
+- Python >= 3.10

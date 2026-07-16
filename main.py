@@ -1,5 +1,4 @@
 import re
-import os
 import httpx
 
 from astrbot.core import logger
@@ -22,8 +21,8 @@ from .kugou import parse_kugou_card
 @register(
     "astrbot_plugin_music_card",
     "Sihnbaobao",
-    "QQ音乐网易云音乐链接转换音乐卡片",
-    "2.0.6"
+    "音乐链接转网易云卡片",
+    "2.1.0"
 )
 class MusicCardPlugin(Star):
 
