@@ -7,6 +7,30 @@ from astrbot.core import logger
 QQ_API = "https://u.y.qq.com/cgi-bin/musicu.fcg"
 
 
+_qq_uin = ""
+
+_qm_keyst = ""
+
+
+def set_qq_credential(uin, qm_keyst):
+
+    global _qq_uin, _qm_keyst
+
+    _qq_uin = uin or ""
+
+    _qm_keyst = qm_keyst or ""
+
+
+    logger.info(
+        f"已设置QQ凭据:uin={_qq_uin}, qm_keyst长度={len(_qm_keyst)}"
+    )
+
+
+def has_qq_credential():
+
+    return bool(_qq_uin and _qm_keyst)
+
+
 # =========================
 # songid 转 songmid
 # =========================
@@ -144,12 +168,48 @@ async def get_playable_audio(song_mid):
     filename = f"C400{song_mid}.m4a"
 
 
+    logged_in = has_qq_credential()
+
+
+    comm_uin = (
+
+        int(_qq_uin)
+
+        if logged_in and _qq_uin.isdigit()
+
+        else 0
+
+    )
+
+
+    param_uin = (
+
+        _qq_uin
+
+        if logged_in
+
+        else "0"
+
+    )
+
+
+    loginflag = (
+
+        1
+
+        if logged_in
+
+        else 0
+
+    )
+
+
     payload = {
 
         "comm": {
             "ct": 24,
             "cv": 0,
-            "uin": 0,
+            "uin": comm_uin,
             "format": "json",
             "platform": "20"
         },
@@ -166,8 +226,8 @@ async def get_playable_audio(song_mid):
                 "guid": "10000",
                 "songmid": [song_mid],
                 "songtype": [0],
-                "uin": "0",
-                "loginflag": 0,
+                "uin": param_uin,
+                "loginflag": loginflag,
                 "platform": "20"
             }
         }
@@ -175,17 +235,34 @@ async def get_playable_audio(song_mid):
     }
 
 
+    headers = {
+
+        "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+
+        "Referer":
+        "https://y.qq.com/"
+    }
+
+
+    if logged_in:
+
+        headers["Cookie"] = (
+
+            f"uin=o{_qq_uin}; "
+            f"qm_keyst={_qm_keyst}"
+        )
+
+        logger.info(
+            "vkey请求以登录态发起"
+        )
+
+
     try:
 
         async with httpx.AsyncClient(
             timeout=10,
-            headers={
-                "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-
-                "Referer":
-                "https://y.qq.com/"
-            }
+            headers=headers
         ) as client:
 
             r = await client.post(

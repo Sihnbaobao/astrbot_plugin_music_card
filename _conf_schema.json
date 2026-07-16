@@ -1,0 +1,12 @@
+{
+  "qqmusic_uin": {
+    "description": "QQ音乐 uin（数字 ID）",
+    "type": "string",
+    "hint": "登录 y.qq.com 后，按 F12 打开开发者工具，在任意请求的 Request Headers 的 Cookie 里找 uin 字段（形如 o0012345678 的数字部分）。留空则不启用登录态。"
+  },
+  "qqmusic_qm_keyst": {
+    "description": "QQ音乐 qm_keyst（musickey）",
+    "type": "text",
+    "hint": "登录 y.qq.com 后，按 F12 打开开发者工具，在任意请求的 Request Headers 的 Cookie 里找 qm_keyst 字段。留空则不启用登录态。"
+  }
+}

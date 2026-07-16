@@ -14,7 +14,11 @@ from astrbot.api.star import (
     register
 )
 
-from .qqcard import parse_qq_card
+from .qqcard import (
+    parse_qq_card,
+    set_qq_credential,
+    has_qq_credential
+)
 
 
 print("========== music_card 加载检查 ==========")
@@ -26,12 +30,69 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.2.1"
+    "0.3.0"
 )
 class MusicCardPlugin(Star):
 
-    def __init__(self, context):
+    def __init__(
+        self,
+        context,
+        config=None
+    ):
+
         super().__init__(context)
+
+
+        if config is None:
+
+            config = {}
+
+
+        uin = (
+
+            config.get(
+                "qqmusic_uin",
+                ""
+            )
+
+            or
+
+            ""
+
+        ).strip()
+
+
+        qm_keyst = (
+
+            config.get(
+                "qqmusic_qm_keyst",
+                ""
+            )
+
+            or
+
+            ""
+
+        ).strip()
+
+
+        if uin and qm_keyst:
+
+            set_qq_credential(
+                uin,
+                qm_keyst
+            )
+
+            logger.info(
+                "已加载QQ音乐登录凭据"
+            )
+
+
+        else:
+
+            logger.info(
+                "未配置QQ音乐登录凭据,匿名模式"
+            )
 
 
     async def expand_netease_url(
