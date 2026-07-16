@@ -173,17 +173,62 @@ def set_sign_url(url):
 
 async def sign_qq_music_card(data):
 
+    image_url = data.get("image", "")
+
+
+    image_b64 = ""
+
+    if image_url:
+
+        try:
+
+            async with httpx.AsyncClient(
+                timeout=10,
+                headers={
+                    "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+
+                    "Referer":
+                    "https://y.qq.com/"
+                }
+            ) as client:
+
+                r = await client.get(image_url)
+
+                if r.status_code == 200:
+
+                    image_b64 = "data:image/jpeg;base64," + b64encode(
+                        r.content
+                    ).decode("utf-8")
+
+                    logger.info(
+                        f"\u5c01\u9762\u4e0b\u8f7d\u6210\u529f,base64\u957f\u5ea6={len(image_b64)}"
+                    )
+
+                else:
+
+                    logger.warning(
+                        f"\u5c01\u9762\u4e0b\u8f7d\u5931\u8d25:{r.status_code}"
+                    )
+
+        except Exception as e:
+
+            logger.warning(
+                f"\u5c01\u9762\u4e0b\u8f7d\u5f02\u5e38:{e}"
+            )
+
+
     body = {
         "type": "custom",
         "url": data.get("url", ""),
         "audio": "",
         "title": data.get("title", "QQ\u97f3\u4e50"),
-        "image": data.get("image", ""),
+        "image": image_b64,
         "singer": data.get("singer", "")
     }
 
     logger.info(
-        f"\u8c03\u7528\u7b7e\u540d\u670d\u52a1:{body}"
+        f"\u8c03\u7528\u7b7e\u540d\u670d\u52a1,image_b64={len(image_b64)}"
     )
 
     try:
