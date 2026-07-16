@@ -770,7 +770,7 @@ async def get_qq_song(song_mid):
         pic = (
 
             "https://y.gtimg.cn/music/photo_new/"
-            "T002R300x300M000/"
+            "T002R500x500M000/"
             +
             album["mid"]
             +
@@ -782,12 +782,7 @@ async def get_qq_song(song_mid):
 
 
 
-    audio = await get_playable_audio(song_mid)
-
-
-    if not audio:
-
-        audio = f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66"
+    audio = f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66"
 
 
     result = {

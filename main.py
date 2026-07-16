@@ -32,7 +32,7 @@ print("========================================")
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "QQ音乐网易云音乐链接转换音乐卡片",
-    "0.5.2"
+    "0.5.3"
 )
 class MusicCardPlugin(Star):
 
@@ -256,7 +256,6 @@ class MusicCardPlugin(Star):
             sign_body = {
                 "type": "custom",
                 "url": qq.get("url", ""),
-                "audio": qq.get("audio", ""),
                 "title": qq.get("title", "QQ音乐"),
                 "image": qq.get("pic", ""),
                 "singer": qq.get("singer", "")
