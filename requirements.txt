@@ -1,2 +1,1 @@
 httpx>=0.24.0
-qqmusic-api>=0.2.0
