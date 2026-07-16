@@ -149,38 +149,97 @@ async def check_qr_login(qrsig):
 
 async def exchange_code(redirect_url):
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as c:
-            r = await c.get(redirect_url)
-            cookies = dict(r.cookies)
-            for h in r.headers.get_list("set-cookie") or r.headers.get_list("Set-Cookie"):
-                for part in h.split(";"):
-                    if "=" in part:
-                        k, v = part.split("=", 1)
-                        cookies[k.strip()] = v.strip()
+        import uuid
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-            cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
-            if cookie_str:
-                m = re.search(r"uin[=o](\d+)", redirect_url)
-                uin = int(m.group(1)) if m else 0
-                save_cookie(cookie_str, uin)
-                return cookie_str, uin
+        m = re.search(r"ptsigx=([^&\s'\"#]+)", redirect_url)
+        uin_match = re.search(r"uin=(\d+)", redirect_url)
+        uin = int(uin_match.group(1)) if uin_match else 0
+        ptsigx = m.group(1) if m else ""
 
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-            r2 = await httpx.AsyncClient(timeout=15, follow_redirects=True, headers=headers).get(redirect_url)
-            cookies2 = dict(r2.cookies)
-            for h in r2.headers.get_list("set-cookie") or r2.headers.get_list("Set-Cookie"):
-                for part in h.split(";"):
-                    if "=" in part:
-                        k, v = part.split("=", 1)
-                        cookies2[k.strip()] = v.strip()
-            cookie_str = "; ".join(f"{k}={v}" for k, v in cookies2.items())
-            uin = 0
-            m = re.search(r"uin[=o](\d+)", redirect_url)
-            if m:
-                uin = int(m.group(1))
-            if cookie_str:
-                save_cookie(cookie_str, uin)
-                return cookie_str, uin
+        if not ptsigx or not uin:
+            logger.warning("未提取到ptsigx")
+            return None, 0
+
+        logger.info(f"exchange:uin={uin}")
+
+        # Step 1: check_sig → p_skey
+        cs_url = redirect_url.replace("ptlogin2.qq.com", "ssl.ptlogin2.graph.qq.com")
+        async with httpx.AsyncClient(timeout=15, follow_redirects=False, headers=headers) as c:
+            r = await c.get(cs_url)
+            p_skey = ""
+            for h in r.headers.get_list("set-cookie") or r.headers.get_list("Set-Cookie") or []:
+                if "p_skey=" in h:
+                    p_skey = h.split(";")[0].split("=", 1)[1]
+                    break
+            if not p_skey:
+                logger.warning("未获取p_skey")
+                return None, 0
+            cs_cookies = "; ".join(f"{k}={v}" for k, v in dict(r.cookies).items())
+            logger.info(f"p_skey获取成功,长度={len(p_skey)}")
+
+        # Step 2: graph.qq.com OAuth → code
+        g_tk = _hash33(p_skey)
+        auth_url = (
+            "https://graph.qq.com/oauth2.0/authorize"
+            "?response_type=code"
+            "&client_id=100497308"
+            "&redirect_uri=https://y.qq.com/portal/wx_redirect.html?login_type=2&surl=https://y.qq.com/"
+            "&scope=get_user_info,get_app_friends"
+            "&state=state"
+            f"&g_tk={g_tk}"
+            f"&auth_time={int(_time.time())}"
+            f"&ui={uuid.uuid4().hex[:16]}"
+        )
+        async with httpx.AsyncClient(timeout=15, follow_redirects=False, headers={
+            **headers, "Cookie": f"p_skey={p_skey}; {cs_cookies}",
+            "Referer": "https://xui.ptlogin2.qq.com/"
+        }) as c:
+            r2 = await c.get(auth_url)
+            loc = r2.headers.get("location") or r2.headers.get("Location") or ""
+            code = ""
+            cm = re.search(r"code=([^&\s'\"#]+)", loc)
+            if cm:
+                code = cm.group(1)
+            if not code:
+                logger.warning(f"OAuth未获取code,location={loc[:100]}")
+                return None, 0
+            logger.info(f"OAuth code获取成功:{code[:20]}...")
+
+        # Step 3: musicu.fcg → musickey/qm_keyst
+        mbody = {
+            "comm": {
+                "g_tk": 0, "uin": uin, "format": "json",
+                "inCharset": "utf-8", "outCharset": "utf-8",
+                "notice": 0, "platform": "h5", "needNewCode": 1,
+                "tmeLoginType": 2
+            },
+            "req_0": {
+                "module": "QQConnectLogin.LoginServer",
+                "method": "QQLogin",
+                "param": {"code": code}
+            }
+        }
+        async with httpx.AsyncClient(timeout=15, headers={
+            **headers, "Referer": "https://y.qq.com/", "Origin": "https://y.qq.com"
+        }) as c:
+            r3 = await c.post(QQ_API, json=mbody)
+            d = r3.json()
+            mdata = d.get("req_0", {}).get("data", {})
+            musickey = mdata.get("musickey", "") or mdata.get("qqmusic_key", "")
+            musicid = mdata.get("musicid", uin)
+            logger.info(f"musickey长度={len(musickey)}, musicid={musicid}")
+
+            if musickey:
+                cookie_str = (
+                    f"uin=o{musicid}; qm_keyst={musickey}; "
+                    f"qqmusic_key={musickey}; tmeLoginType=2; "
+                    f"login_type=2; tmeLoginMethod=3"
+                )
+                save_cookie(cookie_str, int(musicid))
+                return cookie_str, int(musicid)
+            logger.warning("musickey为空")
+
     except Exception as e:
         logger.warning(f"exchange_code失败:{e}")
     return None, 0

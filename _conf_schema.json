@@ -1,13 +1,1 @@
-{
-  "qqmusic_cookie": {
-    "description": "QQ音乐完整 Cookie（整段复制粘贴）",
-    "type": "text",
-    "hint": "登录 y.qq.com 后，按 F12 打开开发者工具，在 Network（网络）面板里找个发往 y.qq.com 的请求，点开 Headers 标签，复制 Request Headers 里 Cookie 那一整行的值粘到这里。留空则匿名模式。"
-  },
-  "qqmusic_sign_url": {
-    "description": "QQ音乐卡片签名服务 URL",
-    "type": "string",
-    "default": "https://ss.xingzhige.com/music_card/card",
-    "hint": "留空使用默认思思签名服务(https://ss.xingzhige.com/music_card/card)。可自建签名服务填入自定义URL。"
-  }
-}
+{}
