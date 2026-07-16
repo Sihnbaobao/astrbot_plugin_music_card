@@ -67,17 +67,7 @@ async def parse_kugou_card(text):
             return None
 
     if not song_hash:
-        # HTML没hash,尝试从页面title提取歌名
-        m2 = re.search(r"<title>\s*(.+?)\s*(?:-|\|)\s*(.+?)\s*</title>", html, re.I)
-        if not m2:
-            m2 = re.search(r"<title>\s*(.+?)\s*</title>", html, re.I)
-        if m2:
-            title = m2.group(1).strip()
-            singer = m2.group(2).strip() if m2.lastindex and m2.lastindex >= 2 else ""
-            logger.info(f"从title提取:{title} - {singer}")
-            if title:
-                return {"title": title, "singer": singer}
-        logger.warning("未提取到酷狗hash")
+        logger.warning("未提取到酷狗hash(SPA页面暂不支持)")
         return None
 
     logger.info(f"酷狗hash:{song_hash}")
