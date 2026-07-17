@@ -14,7 +14,7 @@ from astrbot.api.star import (
 )
 
 from .qqcard import parse_qq_card
-from .netease import search_netease
+from .netease import search_netease, search_netease_multi
 from .kugou import parse_kugou_card
 
 
@@ -22,7 +22,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "音乐链接转网易云卡片",
-    "1.0.1"
+    "1.0.2"
 )
 class MusicCardPlugin(Star):
 
@@ -70,24 +70,36 @@ class MusicCardPlugin(Star):
         logger.info("发送custom卡片")
         await self.send_music(event, message)
 
-    @filter.llm_tool(name="search_song")
-    async def search_song(self, event: AstrMessageEvent, query: str):
-        """搜索一首确实存在的歌曲并发送音乐卡片。
-        仅在你确信歌曲名和歌手名都准确时才调用，不要用模糊或猜测的关键词。
-        只传你确定的歌名+歌手，不确定就不要调用。
+    @filter.llm_tool(name="search_songs")
+    async def search_songs(self, event: AstrMessageEvent, query: str):
+        """搜索歌曲并返回匹配结果列表(不会发送卡片)。
+        用途:确认某首歌是否存在、获取歌曲ID。
+        看完结果后,调用send_song_card发送你确认正确的歌曲。
+        不要用这个工具搜索你不确定是否存在的歌曲。
+        每次对话最多搜索5首,不要刷屏。优先用web_search确认歌曲信息后再搜。
 
         Args:
-            query(string): 精确的歌曲名称+歌手名，如"晴天 周杰伦"。不确定时不要调用。
+            query(string): 搜索关键词,应包含歌名和歌手名,如"夜明けと蛍 花谱"
         """
-        ne = await search_netease(query)
-        if ne:
-            q = query.lower()
-            name = ne["name"].lower()
-            if any(w in name for w in q.split()):
-                await self.send_netease_card(event, str(ne["id"]))
-                return f"已发送: {ne['name']}"
-            return f'未找到符合"{query}"的歌曲,搜到的是: {ne["name"]}'
-        return f"未找到: {query}"
+        results = await search_netease_multi(query, limit=5)
+        if results:
+            lines = []
+            for s in results:
+                lines.append(f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}')
+            return "\n".join(lines)
+        return "未找到匹配的歌曲,请确认歌名和歌手是否正确"
+
+    @filter.llm_tool(name="send_song_card")
+    async def send_song_card(self, event: AstrMessageEvent, song_id: str):
+        """发送指定歌曲ID的网易云音乐卡片。
+        必须先调用search_songs获取歌曲ID,确认结果正确后再调用此工具发送。
+        一次对话最多发1-2首歌,不要连续发多首刷屏。
+
+        Args:
+            song_id(string): 网易云歌曲ID,从search_songs的结果中获取
+        """
+        await self.send_netease_card(event, song_id)
+        return "卡片已发送"
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
