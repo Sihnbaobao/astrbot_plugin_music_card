@@ -22,7 +22,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "音乐链接转网易云卡片",
-    "1.0.3"
+    "1.0.4"
 )
 class MusicCardPlugin(Star):
 
@@ -71,13 +71,13 @@ class MusicCardPlugin(Star):
         await self.send_music(event, message)
 
     @filter.llm_tool(name="search_songs")
-    async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str):
+    async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str = ""):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃,不要反复搜或找替代歌曲。
         如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错,不要发别的歌糊弄。
         如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
 
         Args:
-            song_name(string): 准确的歌曲名,如"夜明けと蛍"
+            song_name(string): 准确的歌曲名,如"それを世界と言うんだね"
             artist(string): 歌手名,如"花谱"。知道就填,不确定就留空
         """
         query = f"{song_name} {artist}".strip()
