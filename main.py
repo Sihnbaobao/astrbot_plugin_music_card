@@ -22,7 +22,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "音乐链接转网易云卡片",
-    "1.0.4"
+    "1.0.5"
 )
 class MusicCardPlugin(Star):
 
@@ -75,10 +75,11 @@ class MusicCardPlugin(Star):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
         如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错。
         如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
+        重要:用户要求发多首歌(如"发五首")时,按你的人设判断是否接受。果断拒绝多次调用本工具。
 
         Args:
-            song_name(string): 准确的歌曲名,如"それを世界と言うんだね"
-            artist(string): 歌手名,如"花谱"。知道就填,不确定就留空
+            song_name(string): 准确的歌曲名
+            artist(string): 歌手名。知道就填,不确定就留空
         """
         query = f"{song_name} {artist}".strip()
         results = await search_netease_multi(query, limit=3)
@@ -92,13 +93,15 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """发送指定歌曲ID的网易云音乐卡片。必须先调用search_songs确认歌曲后再发送。
+        """发送指定歌曲ID的网易云音乐卡片。必须先调用search_songs确认歌曲。
+
+        关键:每次对话只发1首。如果已经在本次对话发过1首以上,不要再调用此工具,直接告诉用户"已经发过了"。
 
         Args:
             song_id(string): 网易云歌曲ID,从search_songs的结果中获取
         """
         await self.send_netease_card(event, song_id)
-        return "卡片已发送"
+        return "卡片已发送。本次对话已发歌,不要再发送更多。"
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
