@@ -4,96 +4,66 @@ import httpx
 from astrbot.core import logger
 
 
+async def _extract_hash(text, url):
+    """从文本/URL/HTML中提取酷狗32位hash"""
+    # 片段: #hash=XXX
+    m = re.search(r"[#&]hash=([0-9A-Fa-f]+)", text)
+    if m:
+        return m.group(1).upper()
+    # 直连: song/#XXX
+    m = re.search(r"song/#([0-9A-Za-z]+)", text)
+    if m:
+        return m.group(1).upper()
+    # chain短码: 32位hex即hash
+    m = re.search(r"chain=([0-9A-Za-z]+)", text)
+    if m and re.match(r"^[0-9A-Fa-f]{32}$", m.group(1)):
+        return m.group(1).upper()
+
+    # 从页面HTML抓
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10,
+                                     headers={"User-Agent": "Mozilla/5.0"}) as c:
+            r = await c.get(url)
+            html, real_url = r.text, str(r.url)
+            logger.info(f"酷狗真实地址:{real_url}")
+
+            m = re.search(r"hash=([0-9A-Fa-f]+)", real_url)
+            if m:
+                return m.group(1).upper()
+            for p in (r'"hash"\s*:\s*"([0-9A-Fa-f]{32})"',
+                      r"data-hash=['\"]([0-9A-Fa-f]{32})",
+                      r'hash=([0-9A-Fa-f]{32})'):
+                m = re.search(p, html)
+                if m:
+                    return m.group(1).upper()
+    except Exception as e:
+        logger.warning(f"酷狗请求失败:{e}")
+    return None
+
+
 async def parse_kugou_card(text):
     m = re.search(r"https?://[^\s]+", text)
     if not m:
         return None
 
-    url = m.group(0)
-
-    # 直接从原始文本提取 hash
-    song_hash = None
-
-    # hash=XXX 格式
-    m2 = re.search(r"[#&]hash=([0-9A-Fa-f]+)", text)
-    if m2:
-        song_hash = m2.group(1).upper()
-
-    # song/#XXX 格式(直连hash)
-    if not song_hash:
-        m2 = re.search(r"song/#([0-9A-Za-z]+)", text)
-        if m2:
-            song_hash = m2.group(1).upper()
-
-    # chain参数
-    if not song_hash:
-        m2 = re.search(r"chain=([0-9A-Za-z]+)", text)
-        if m2:
-            chain = m2.group(1)
-            if re.match(r"^[0-9A-Fa-f]{32}$", chain):
-                song_hash = chain.upper()
-
-    # 短码或未提取到hash,从页面HTML抓
+    song_hash = await _extract_hash(text, m.group(0))
     if not song_hash or len(song_hash) < 32:
-        song_hash = None
-        try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=10,
-                                         headers={"User-Agent": "Mozilla/5.0"}) as c:
-                r = await c.get(url)
-                real_url = str(r.url)
-                logger.info(f"酷狗真实地址:{real_url}")
-
-                # 从真实地址提取
-                m2 = re.search(r"hash=([0-9A-Fa-f]+)", real_url)
-                if m2:
-                    song_hash = m2.group(1).upper()
-
-                # 从页面HTML提取
-                if not song_hash:
-                    html = r.text
-                    m2 = re.search(r'"hash"\s*:\s*"([0-9A-Fa-f]{32})"', html)
-                    if m2:
-                        song_hash = m2.group(1).upper()
-                    if not song_hash:
-                        m2 = re.search(r"data-hash=['\"]([0-9A-Fa-f]{32})", html)
-                        if m2:
-                            song_hash = m2.group(1).upper()
-                    if not song_hash:
-                        m2 = re.search(r'hash=([0-9A-Fa-f]{32})', html)
-                        if m2:
-                            song_hash = m2.group(1).upper()
-        except Exception as e:
-            logger.warning(f"酷狗请求失败:{e}")
-            return None
-
-    if not song_hash:
         logger.warning("未提取到酷狗hash(SPA页面暂不支持)")
         return None
 
     logger.info(f"酷狗hash:{song_hash}")
 
-    info_url = (
-        "https://m.kugou.com/app/i/getSongInfo.php"
-        f"?cmd=playInfo&hash={song_hash}"
-    )
-
     try:
-        async with httpx.AsyncClient(timeout=10,
-                                     headers={"User-Agent": "Mozilla/5.0"}) as c:
-            r = await c.get(info_url)
-            data = r.json()
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as c:
+            data = (await c.get(
+                f"https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash={song_hash}"
+            )).json()
+            title, singer = data.get("songName", ""), data.get("singerName", "")
     except Exception as e:
         logger.warning(f"酷狗歌曲信息请求失败:{e}")
         return None
 
-    try:
-        title = data.get("songName", "")
-        singer = data.get("singerName", "")
-    except Exception:
-        return None
-
     if not title:
         return None
-
     logger.info(f"酷狗歌曲:{title} - {singer}")
     return {"title": title, "singer": singer}
