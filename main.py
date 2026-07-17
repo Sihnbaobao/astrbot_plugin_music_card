@@ -22,7 +22,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "音乐链接转网易云卡片",
-    "1.0.2"
+    "1.0.3"
 )
 class MusicCardPlugin(Star):
 
@@ -71,32 +71,28 @@ class MusicCardPlugin(Star):
         await self.send_music(event, message)
 
     @filter.llm_tool(name="search_songs")
-    async def search_songs(self, event: AstrMessageEvent, query: str):
-        """搜索歌曲并返回匹配结果列表(不会发送卡片)。
-        用途:获取歌曲ID以供send_song_card发送。
-        重要约束:
-        - 不要搜索你记不清或不存在的歌名。如果你只是模糊记得某首歌,
-          优先使用web_search_tavily确认正确的歌名和歌手名后再调用本工具。
-        - 看完搜索结果后,核对歌名和歌手都完全匹配你想要的歌,再调用send_song_card。
-        - 如果结果里没有完全匹配的,不要强行发送近似的歌曲。
-        - 一次对话最多发1-2首,宁可少发,绝不刷屏。
+    async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str):
+        """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃,不要反复搜或找替代歌曲。
+        如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错,不要发别的歌糊弄。
+        如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
 
         Args:
-            query(string): 准确的歌名+歌手名,如"夜明けと蛍 n-buna"。记不清就让web_search先确认。
+            song_name(string): 准确的歌曲名,如"夜明けと蛍"
+            artist(string): 歌手名,如"花谱"。知道就填,不确定就留空
         """
-        results = await search_netease_multi(query, limit=5)
-        if results:
-            lines = []
-            for s in results:
-                lines.append(f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}')
-            return "\n".join(lines)
-        return "未找到匹配的歌曲,请确认歌名和歌手是否正确"
+        query = f"{song_name} {artist}".strip()
+        results = await search_netease_multi(query, limit=3)
+        if not results:
+            return "搜索结束,未找到匹配的歌曲。如果是你自己提到的歌说明你记错了歌名,直接承认即可。如果是用户让你发的,告诉用户搜不到这个歌名。"
+
+        lines = []
+        for s in results:
+            lines.append(f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}')
+        return "\n".join(lines) + "\n\n注意:核对歌名和歌手是否完全匹配。都不匹配说明歌名或歌手记错了,不要发近似歌曲。"
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """发送指定歌曲ID的网易云音乐卡片。
-        必须先调用search_songs获取歌曲ID,确认结果正确后再调用此工具发送。
-        一次对话最多发1-2首歌,不要连续发多首刷屏。
+        """发送指定歌曲ID的网易云音乐卡片。必须先调用search_songs确认歌曲后再发送。
 
         Args:
             song_id(string): 网易云歌曲ID,从search_songs的结果中获取
