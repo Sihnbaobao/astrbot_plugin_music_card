@@ -52,18 +52,6 @@ class MusicCardPlugin(Star):
     async def music_card(self, event: AstrMessageEvent):
         text = event.message_str or ""
 
-        # 点歌命令
-        if text.startswith("/song ") or text.startswith("/点歌 "):
-            q = text.split(" ", 1)[1].strip() if " " in text else ""
-            if q:
-                ne = await search_netease(q)
-                if ne:
-                    await self._netease_card(event, ne["id"])
-                else:
-                    await self._send(event, [{"type": "text", "data": {"text": f"没找到: {q}"}}])
-            event.stop_event()
-            return
-
         # 网易云
         if "music.163.com" in text or "163cn.tv" in text:
             m = re.search(r"https?://[^\s]+", text)

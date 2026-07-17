@@ -1,19 +1,23 @@
+## v1.0.5
+
+- 优化代码结构，限制重复调用
+
+## v1.0.4
+
+- artist 参数改为可选
+
 ## v1.0.3
 
-- search_songs 拆成 song_name + artist 两个参数,搜索仅 3 条结果
-- 搜不到直接放,不再找替代歌糊弄用户
-- 工具描述区分:bot 自己提到的歌搜不到就承认幻觉,用户让发的歌搜不到就让用户确认
+- search_songs 拆为 song_name + artist 两个参数
 
 ## v1.0.2
 
-- 拆分为两个工具:search_songs(搜索返回列表) + send_song_card(确认后发送)
+- 拆分为 search_songs + send_song_card 两个 LLM 工具
 
 ## v1.0.1
 
-- 新增 search_song 函数工具,LLM 可在聊天中自主调用搜歌发卡片
+- 新增 search_song 工具，LLM 可自主搜歌
 
 ## v1.0.0
 
-- QQ音乐/酷狗/网易云链接 → 搜网易云 → 发 type:163 原生音乐卡片
-- 支持 `/song` `/点歌` 命令直接搜歌
-- 零依赖(仅 httpx), 零配置
+- QQ/酷狗/网易云链接转卡片

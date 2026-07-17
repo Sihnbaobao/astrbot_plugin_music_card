@@ -5,7 +5,6 @@
 ## 功能
 
 - 网易云、QQ音乐、酷狗链接自动转卡片
-- 命令 `/song 歌名` 或 `/点歌 歌名` 直接搜歌发卡片
 - LLM 工具 `search_songs` + `send_song_card`：bot 聊天中自主搜歌发卡片
 
 ## 安装
@@ -25,4 +24,4 @@ AstrBot >= 4.26 · aiocqhttp + NapCatQQ · Python >= 3.10 · httpx
 - **1.0.3** search_songs 拆为 song_name + artist 两个参数
 - **1.0.2** 拆分为 search_songs + send_song_card 两个 LLM 工具
 - **1.0.1** 新增 search_song 工具，LLM 可自主搜歌
-- **1.0.0** QQ/酷狗/网易云链接转卡片，/song 命令
+- **1.0.0** QQ/酷狗/网易云链接转卡片
