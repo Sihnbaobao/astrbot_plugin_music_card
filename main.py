@@ -84,9 +84,8 @@ class MusicCardPlugin(Star):
         ne = await search_netease(query)
         if ne:
             await self.send_netease_card(event, str(ne["id"]))
-            yield event.plain_result(f"已发送歌曲卡片: {ne['name']}")
-        else:
-            yield event.plain_result(f"未找到歌曲: {query}")
+            return f"已发送: {ne['name']}"
+        return f"未找到: {query}"
 
 
     @filter.event_message_type(filter.EventMessageType.ALL)
