@@ -74,18 +74,24 @@ class MusicCardPlugin(Star):
         await self.send_music(event, message)
 
 
-    @filter.llm_tool(name="search_song")
+@filter.llm_tool(name="search_song")
     async def search_song(self, event: AstrMessageEvent, query: str):
-        """搜索一首歌并发送音乐卡片。在聊天中提到某首歌时可调用此工具发送该歌曲的卡片。
+        """\u641c\u7d22\u4e00\u9996\u786e\u5b9e\u5b58\u5728\u7684\u6b4c\u66f2\u5e76\u53d1\u9001\u97f3\u4e50\u5361\u7247\u3002
+        \u4ec5\u5728\u4f60\u786e\u4fe1\u6b4c\u66f2\u540d\u548c\u6b4c\u624b\u540d\u90fd\u51c6\u786e\u65f6\u624d\u8c03\u7528\uff0c\u4e0d\u8981\u7528\u6a21\u7cca\u6216\u731c\u6d4b\u7684\u5173\u952e\u8bcd\u3002
+        \u53ea\u4f20\u4f60\u786e\u5b9a\u7684\u6b4c\u540d+\u6b4c\u624b\uff0c\u4e0d\u786e\u5b9a\u5c31\u4e0d\u8981\u8c03\u7528\u3002
 
         Args:
-            query(string): 要搜索的歌曲名称,最好包含歌手名,例如"晴天 周杰伦"
+            query(string): \u7cbe\u786e\u7684\u6b4c\u66f2\u540d\u79f0+\u6b4c\u624b\u540d\uff0c\u5982\"\u6674\u5929 \u5468\u6770\u4f26\"\u3002\u4e0d\u786e\u5b9a\u65f6\u4e0d\u8981\u8c03\u7528\u3002
         """
         ne = await search_netease(query)
         if ne:
-            await self.send_netease_card(event, str(ne["id"]))
-            return f"已发送: {ne['name']}"
-        return f"未找到: {query}"
+            q = query.lower()
+            name = ne["name"].lower()
+            if any(w in name for w in q.split()):
+                await self.send_netease_card(event, str(ne["id"]))
+                return f"\u5df2\u53d1\u9001: {ne['name']}"
+            return f"\u672a\u627e\u5230\u7b26\u5408\"{query}\"\u7684\u6b4c\u66f2\uff0c\u641c\u5230\u7684\u662f: {ne['name']}"
+        return f"\u672a\u627e\u5230: {query}"
 
 
     @filter.event_message_type(filter.EventMessageType.ALL)
