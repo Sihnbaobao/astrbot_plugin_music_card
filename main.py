@@ -73,13 +73,16 @@ class MusicCardPlugin(Star):
     @filter.llm_tool(name="search_songs")
     async def search_songs(self, event: AstrMessageEvent, query: str):
         """搜索歌曲并返回匹配结果列表(不会发送卡片)。
-        用途:确认某首歌是否存在、获取歌曲ID。
-        看完结果后,调用send_song_card发送你确认正确的歌曲。
-        不要用这个工具搜索你不确定是否存在的歌曲。
-        每次对话最多搜索5首,不要刷屏。优先用web_search确认歌曲信息后再搜。
+        用途:获取歌曲ID以供send_song_card发送。
+        重要约束:
+        - 不要搜索你记不清或不存在的歌名。如果你只是模糊记得某首歌,
+          优先使用web_search_tavily确认正确的歌名和歌手名后再调用本工具。
+        - 看完搜索结果后,核对歌名和歌手都完全匹配你想要的歌,再调用send_song_card。
+        - 如果结果里没有完全匹配的,不要强行发送近似的歌曲。
+        - 一次对话最多发1-2首,宁可少发,绝不刷屏。
 
         Args:
-            query(string): 搜索关键词,应包含歌名和歌手名,如"夜明けと蛍 花谱"
+            query(string): 准确的歌名+歌手名,如"夜明けと蛍 n-buna"。记不清就让web_search先确认。
         """
         results = await search_netease_multi(query, limit=5)
         if results:
