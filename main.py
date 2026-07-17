@@ -48,6 +48,8 @@ class MusicCardPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
+        self._card_count = 0
+        self._search_count = 0
         text = event.message_str or ""
 
         # 网易云
@@ -124,6 +126,9 @@ class MusicCardPlugin(Star):
             artist(string): 歌手名。知道就填,不确定就留空
         """
         q = f"{song_name} {artist}".strip()
+        self._search_count = getattr(self, "_search_count", 0) + 1
+        if self._search_count > 5:
+            return "已搜索5次,不再搜索。请在已有结果中选择或放弃。"
         results = await search_netease_multi(q, limit=3)
         if not results:
             return (
@@ -146,5 +151,8 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID
         """
+        self._card_count = getattr(self, "_card_count", 0) + 1
+        if self._card_count > 2:
+            return "已发2首,不要再发更多。"
         await self._netease_card(event, song_id)
         return "卡片已发送"
