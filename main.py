@@ -72,8 +72,8 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="search_songs")
     async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str = ""):
-        """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃,不要反复搜或找替代歌曲。
-        如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错,不要发别的歌糊弄。
+        """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
+        如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错。
         如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
 
         Args:
@@ -83,12 +83,12 @@ class MusicCardPlugin(Star):
         query = f"{song_name} {artist}".strip()
         results = await search_netease_multi(query, limit=3)
         if not results:
-            return "搜索结束,未找到匹配的歌曲。如果是你自己提到的歌说明你记错了歌名,直接承认即可。如果是用户让你发的,告诉用户搜不到这个歌名。"
+            return "搜索结束,未找到。如果是你提到的歌说明记错了歌名。如果是用户让你发的,告诉用户搜不到这个歌名。"
 
         lines = []
         for s in results:
             lines.append(f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}')
-        return "\n".join(lines) + "\n\n注意:核对歌名和歌手是否完全匹配。都不匹配说明歌名或歌手记错了,不要发近似歌曲。"
+        return "\n".join(lines) + "\n\n提示:中文歌名可能以日语原文显示(如'魔法'显示为'まほう')。歌手匹配且歌名对译即为正确歌曲。"
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
