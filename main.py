@@ -117,9 +117,7 @@ class MusicCardPlugin(Star):
     ):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
         如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错。
-        如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
-        重要:用户要求发多首歌(如"发五首")时,按你的人设判断是否接受。
-        果断拒绝多次调用本工具。
+        如果是用户要求你发的歌搜不到,直接告诉用户搜不到。
 
         Args:
             song_name(string): 准确的歌曲名
@@ -143,12 +141,10 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """发送指定歌曲ID的网易云音乐卡片。必须先调用search_songs确认歌曲。
-        关键:每次对话只发1首。如果已经在本次对话发过1首以上,
-        不要再调用此工具,直接告诉用户"已经发过了"。
+        """发送指定歌曲ID的网易云音乐卡片。先调用search_songs确认歌曲后再用。
 
         Args:
-            song_id(string): 网易云歌曲ID,从search_songs的结果中获取
+            song_id(string): 网易云歌曲ID
         """
         await self._netease_card(event, song_id)
-        return "卡片已发送。本次对话已发歌,不要再发送更多。"
+        return "卡片已发送"
