@@ -118,12 +118,11 @@ class MusicCardPlugin(Star):
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
-        如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错。
-        如果是用户要求你发的歌搜不到,直接告诉用户搜不到。
+        搜不到就直接告诉用户没搜到。
 
         Args:
-            song_name(string): 准确的歌曲名
-            artist(string): 歌手名。知道就填,不确定就留空
+            song_name(string): 歌曲名
+            artist(string): 歌手名,知道就填
         """
         q = f"{song_name} {artist}".strip()
         self._search_count = getattr(self, "_search_count", 0) + 1
@@ -131,11 +130,7 @@ class MusicCardPlugin(Star):
             return "已搜索5次,不再搜索。请在已有结果中选择或放弃。"
         results = await search_netease_multi(q, limit=3)
         if not results:
-            return (
-                "搜索结束,未找到。"
-                "如果是你提到的歌说明记错了歌名。"
-                "如果是用户让你发的,告诉用户搜不到这个歌名。"
-            )
+            return "未找到。"
         h = "提示:中文歌名可能以日语原文显示(如'魔法'显示为'まほう')。"
         h += "歌手匹配且歌名对译即为正确歌曲。"
         lines = [
