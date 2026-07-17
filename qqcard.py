@@ -17,9 +17,15 @@ async def convert_songid_to_mid(songid):
         }
     }
     try:
-        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as c:
+        async with httpx.AsyncClient(
+            timeout=10, headers={"User-Agent": "Mozilla/5.0"}
+        ) as c:
             r = await c.post(QQ_API, json=payload)
-            mid = r.json()["music.pf_song_detail_svr"]["data"]["track_info"]["mid"]
+            mid = (
+                r.json()
+                ["music.pf_song_detail_svr"]
+                ["data"]["track_info"]["mid"]
+            )
             logger.info(f"songid->mid:{songid}->{mid}")
             return mid
     except Exception as e:
@@ -37,7 +43,9 @@ async def get_qq_song(song_mid):
         }
     }
     try:
-        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as c:
+        async with httpx.AsyncClient(
+            timeout=10, headers={"User-Agent": "Mozilla/5.0"}
+        ) as c:
             r = await c.post(QQ_API, json=payload)
             track = r.json()["songinfo"]["data"]["track_info"]
     except Exception as e:
@@ -45,18 +53,26 @@ async def get_qq_song(song_mid):
         return None
 
     title = track.get("name", "")
-    singer = (track.get("singer", [{}])[0].get("name", "") if track.get("singer") else "")
+    singer = ""
+    if track.get("singer"):
+        singer = track["singer"][0].get("name", "")
     pic = ""
     album_mid = track.get("album", {}).get("mid", "")
     if album_mid:
-        pic = f"https://y.gtimg.cn/music/photo_new/T002R500x500M000/{album_mid}.jpg"
+        pic = (
+            "https://y.gtimg.cn/music/photo_new/"
+            f"T002R500x500M000/{album_mid}.jpg"
+        )
 
     return {
         "title": title,
         "singer": singer,
         "pic": pic,
         "url": f"https://y.qq.com/n/ryqq/songDetail/{song_mid}",
-        "audio": f"https://isure.stream.qqmusic.qq.com/C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66",
+        "audio": (
+            f"https://isure.stream.qqmusic.qq.com/"
+            f"C400{song_mid}.m4a?guid=10000&uin=0&fromtag=66"
+        ),
         "songmid": song_mid,
         "song_id": track.get("id", 0)
     }
@@ -68,8 +84,10 @@ async def parse_qq_card(text):
         return None
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10,
-                                     headers={"User-Agent": "Mozilla/5.0"}) as c:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"}
+        ) as c:
             real_url = str((await c.get(m.group(0))).url)
     except Exception as e:
         logger.warning(f"链接展开失败:{e}")

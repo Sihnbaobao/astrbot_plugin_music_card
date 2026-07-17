@@ -10,7 +10,11 @@ from .netease import search_netease, search_netease_multi
 from .kugou import parse_kugou_card
 
 
-MUSIC_DOMAINS = ("music.163.com", "163cn.tv", "y.qq.com", "c6.y.qq.com", "i.y.qq.com", "kugou.com")
+MUSIC_DOMAINS = (
+    "music.163.com", "163cn.tv",
+    "y.qq.com", "c6.y.qq.com", "i.y.qq.com",
+    "kugou.com",
+)
 
 
 @register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.0.5")
@@ -25,26 +29,20 @@ class MusicCardPlugin(Star):
         try:
             gid = event.message_obj.group_id
             if gid:
-                await event.bot.api.call_action("send_group_msg", group_id=gid, message=message)
+                await event.bot.api.call_action(
+                    "send_group_msg", group_id=gid, message=message)
             else:
-                await event.bot.api.call_action("send_private_msg", user_id=event.get_sender_id(), message=message)
+                await event.bot.api.call_action(
+                    "send_private_msg",
+                    user_id=event.get_sender_id(), message=message)
         except Exception as e:
             logger.error(f"发送失败:{e}")
             raise
 
     async def _netease_card(self, event, song_id):
-        await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
+        msg = [{"type": "music", "data": {"type": "163", "id": song_id}}]
+        await self._send(event, msg)
         logger.info(f"163卡:id={song_id}")
-
-    async def _custom_card(self, event, qq):
-        await self._send(event, [{
-            "type": "music", "data": {
-                "type": "custom",
-                "url": qq.get("url", ""), "audio": qq.get("audio", ""),
-                "image": qq.get("pic", ""), "title": qq.get("title", "QQ音乐"),
-                "content": qq.get("singer", ""), "app": "QQ音乐"
-            }
-        }])
 
     # ── 链接处理 ──
 
@@ -59,7 +57,9 @@ class MusicCardPlugin(Star):
                 url = m.group(0)
                 if "163cn.tv" in url:
                     try:
-                        async with httpx.AsyncClient(follow_redirects=True, timeout=10) as c:
+                        async with httpx.AsyncClient(
+                            follow_redirects=True, timeout=10
+                        ) as c:
                             url = str((await c.get(url)).url)
                     except Exception:
                         pass
@@ -73,7 +73,8 @@ class MusicCardPlugin(Star):
         if "y.qq.com" in text or "c6.y.qq.com" in text or "i.y.qq.com" in text:
             info = await parse_qq_card(text)
             if info:
-                ne = await search_netease(info.get("title", ""), info.get("singer", ""))
+                ne = await search_netease(
+                    info.get("title", ""), info.get("singer", ""))
                 if ne:
                     await self._netease_card(event, ne["id"])
                 else:
@@ -91,18 +92,34 @@ class MusicCardPlugin(Star):
             event.stop_event()
             return
 
-        # 防止AI处理音乐链接
         if any(k in text for k in MUSIC_DOMAINS):
             event.stop_event()
+
+    async def _custom_card(self, event, qq):
+        await self._send(event, [{
+            "type": "music",
+            "data": {
+                "type": "custom",
+                "url": qq.get("url", ""),
+                "audio": qq.get("audio", ""),
+                "image": qq.get("pic", ""),
+                "title": qq.get("title", "QQ音乐"),
+                "content": qq.get("singer", ""),
+                "app": "QQ音乐",
+            }
+        }])
 
     # ── LLM 工具 ──
 
     @filter.llm_tool(name="search_songs")
-    async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str = ""):
+    async def search_songs(
+        self, event: AstrMessageEvent, song_name: str, artist: str = ""
+    ):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
         如果是你自己提到的歌搜不到说明你记错了歌名,直接承认记错。
         如果是用户要求你发的歌搜不到,直接告诉用户搜不到,让用户确认歌名。
-        重要:用户要求发多首歌(如"发五首")时,按你的人设判断是否接受。果断拒绝多次调用本工具。
+        重要:用户要求发多首歌(如"发五首")时,按你的人设判断是否接受。
+        果断拒绝多次调用本工具。
 
         Args:
             song_name(string): 准确的歌曲名
@@ -111,14 +128,24 @@ class MusicCardPlugin(Star):
         q = f"{song_name} {artist}".strip()
         results = await search_netease_multi(q, limit=3)
         if not results:
-            return "搜索结束,未找到。如果是你提到的歌说明记错了歌名。如果是用户让你发的,告诉用户搜不到这个歌名。"
-        lines = [f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}' for s in results]
-        return "\n".join(lines) + "\n\n提示:中文歌名可能以日语原文显示(如'魔法'显示为'まほう')。歌手匹配且歌名对译即为正确歌曲。"
+            return (
+                "搜索结束,未找到。"
+                "如果是你提到的歌说明记错了歌名。"
+                "如果是用户让你发的,告诉用户搜不到这个歌名。"
+            )
+        h = "提示:中文歌名可能以日语原文显示(如'魔法'显示为'まほう')。"
+        h += "歌手匹配且歌名对译即为正确歌曲。"
+        lines = [
+            f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}'
+            for s in results
+        ]
+        return "\n".join(lines) + "\n\n" + h
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
         """发送指定歌曲ID的网易云音乐卡片。必须先调用search_songs确认歌曲。
-        关键:每次对话只发1首。如果已经在本次对话发过1首以上,不要再调用此工具,直接告诉用户"已经发过了"。
+        关键:每次对话只发1首。如果已经在本次对话发过1首以上,
+        不要再调用此工具,直接告诉用户"已经发过了"。
 
         Args:
             song_id(string): 网易云歌曲ID,从search_songs的结果中获取
