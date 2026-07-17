@@ -29,7 +29,6 @@ class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
 
-
     async def send_music(self, event, message):
         try:
             if event.message_obj.group_id:
@@ -48,12 +47,10 @@ class MusicCardPlugin(Star):
             logger.error(f"发送消息失败:{e}")
             raise
 
-
     async def send_netease_card(self, event, song_id):
         message = [{"type": "music", "data": {"type": "163", "id": song_id}}]
         logger.info(f"发送网易云卡片:id={song_id}")
         await self.send_music(event, message)
-
 
     async def send_custom_card(self, event, qq):
         message = [
@@ -73,15 +70,14 @@ class MusicCardPlugin(Star):
         logger.info("发送custom卡片")
         await self.send_music(event, message)
 
-
-@filter.llm_tool(name="search_song")
+    @filter.llm_tool(name="search_song")
     async def search_song(self, event: AstrMessageEvent, query: str):
-        """\u641c\u7d22\u4e00\u9996\u786e\u5b9e\u5b58\u5728\u7684\u6b4c\u66f2\u5e76\u53d1\u9001\u97f3\u4e50\u5361\u7247\u3002
-        \u4ec5\u5728\u4f60\u786e\u4fe1\u6b4c\u66f2\u540d\u548c\u6b4c\u624b\u540d\u90fd\u51c6\u786e\u65f6\u624d\u8c03\u7528\uff0c\u4e0d\u8981\u7528\u6a21\u7cca\u6216\u731c\u6d4b\u7684\u5173\u952e\u8bcd\u3002
-        \u53ea\u4f20\u4f60\u786e\u5b9a\u7684\u6b4c\u540d+\u6b4c\u624b\uff0c\u4e0d\u786e\u5b9a\u5c31\u4e0d\u8981\u8c03\u7528\u3002
+        """搜索一首确实存在的歌曲并发送音乐卡片。
+        仅在你确信歌曲名和歌手名都准确时才调用，不要用模糊或猜测的关键词。
+        只传你确定的歌名+歌手，不确定就不要调用。
 
         Args:
-            query(string): \u7cbe\u786e\u7684\u6b4c\u66f2\u540d\u79f0+\u6b4c\u624b\u540d\uff0c\u5982\"\u6674\u5929 \u5468\u6770\u4f26\"\u3002\u4e0d\u786e\u5b9a\u65f6\u4e0d\u8981\u8c03\u7528\u3002
+            query(string): 精确的歌曲名称+歌手名，如"晴天 周杰伦"。不确定时不要调用。
         """
         ne = await search_netease(query)
         if ne:
@@ -89,14 +85,12 @@ class MusicCardPlugin(Star):
             name = ne["name"].lower()
             if any(w in name for w in q.split()):
                 await self.send_netease_card(event, str(ne["id"]))
-                return f"\u5df2\u53d1\u9001: {ne['name']}"
-            return f"\u672a\u627e\u5230\u7b26\u5408\"{query}\"\u7684\u6b4c\u66f2\uff0c\u641c\u5230\u7684\u662f: {ne['name']}"
-        return f"\u672a\u627e\u5230: {query}"
-
+                return f"已发送: {ne['name']}"
+            return f'未找到符合"{query}"的歌曲,搜到的是: {ne["name"]}'
+        return f"未找到: {query}"
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
-
         text = event.message_str or ""
 
         # ---- 点歌命令 ----
