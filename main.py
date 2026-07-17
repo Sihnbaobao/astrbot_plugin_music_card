@@ -22,7 +22,7 @@ from .kugou import parse_kugou_card
     "astrbot_plugin_music_card",
     "Sihnbaobao",
     "音乐链接转网易云卡片",
-    "2.1.1"
+    "2.2.0"
 )
 class MusicCardPlugin(Star):
 
@@ -86,6 +86,37 @@ class MusicCardPlugin(Star):
     async def music_card(self, event: AstrMessageEvent):
 
         text = event.message_str or ""
+
+        # ---- 点歌命令 ----
+        if text.strip().startswith("/song ") or text.strip().startswith("/\u70b9\u6b4c "):
+
+            query = text.strip().split(" ", 1)[1] if " " in text else ""
+
+            if query:
+
+                ne = await search_netease(query)
+
+                if ne:
+
+                    logger.info(f"\u70b9\u6b4c:{query} -> id={ne['id']}")
+                    await self.send_netease_card(event, ne["id"])
+
+                else:
+
+                    await self.send_music(event, [{
+
+                        "type": "text",
+
+                        "data": {
+
+                            "text": f"\u6ca1\u627e\u5230: {query}"
+
+                        }
+
+                    }])
+
+            event.stop_event()
+            return
 
         # ---- 网易云 ----
         if "music.163.com" in text or "163cn.tv" in text:
