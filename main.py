@@ -133,11 +133,11 @@ class MusicCardPlugin(Star):
         self._check_reset()
         self._search_count += 1
         if self._search_count > 3:
-            return "...璃月不想搜了"
+            return "...好麻烦...璃月不想搜了"
         q = f"{song_name} {artist}".strip()
         results = await search_netease_multi(q, limit=3)
         if not results:
-            return "没找到。"
+            return "...没找到"
         lines = [f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}' for s in results]
         return "\n".join(lines) + "\n\n(中文歌名可能以日语显示,如'魔法'='まほう')"
 
