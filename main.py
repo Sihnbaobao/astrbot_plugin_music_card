@@ -127,7 +127,7 @@ class MusicCardPlugin(Star):
         q = f"{song_name} {artist}".strip()
         self._search_count = getattr(self, "_search_count", 0) + 1
         if self._search_count > 5:
-            return "搜够了。"
+            return "搜那么多次？烦了。"
         results = await search_netease_multi(q, limit=3)
         if not results:
             return "没找到。"
@@ -146,7 +146,7 @@ class MusicCardPlugin(Star):
         """
         self._card_count = getattr(self, "_card_count", 0) + 1
         if self._card_count > 2:
-            return "已发2首。"
+            return "发两首还不够？"
         await self._netease_card(event, song_id)
         if self._card_count >= 2:
-            return "已发。"
+            return "发完了。别要了。"
