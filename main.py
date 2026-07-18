@@ -131,7 +131,7 @@ class MusicCardPlugin(Star):
         self._search_count = getattr(self, "_search_count", 0) + 1
         smx = getattr(self, "_max_cards", 2) * 2
         if self._search_count > smx:
-            return "搜那么多次？烦了。"
+            return "不搜了。"
         results = await search_netease_multi(q, limit=3)
         if not results:
             return "没找到。"
@@ -149,9 +149,9 @@ class MusicCardPlugin(Star):
             song_id(string): 网易云歌曲ID
         """
         self._card_count = getattr(self, "_card_count", 0) + 1
+        self._card_count = getattr(self, "_card_count", 0) + 1
         mx = getattr(self, "_max_cards", 2)
         if self._card_count > mx:
-            return f"发{mx}首还不够？"
+            return "不能再发了。"
         await self._netease_card(event, song_id)
-        if self._card_count >= mx:
-            return "发完了。别要了。"
+        return "已发送"
