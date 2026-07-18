@@ -25,6 +25,9 @@ class MusicCardPlugin(Star):
         cfg = config or {}
         n = cfg.get("max_cards", 2)
         self._max_cards = max(1, min(3, int(n) if n else 2))
+        self._card_count = 0
+        self._search_count = 0
+        self._last_msg = ""
 
     # ── 消息发送 ──
 
@@ -116,6 +119,14 @@ class MusicCardPlugin(Star):
 
     # ── LLM 工具 ──
 
+    def _reset_if_new_msg(self, event):
+        txt = event.message_str or ""
+        if txt != self._last_msg:
+            self._card_count = 0
+            self._search_count = 0
+            self._last_msg = txt
+
+
     @filter.llm_tool(name="search_songs")
     async def search_songs(
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
@@ -127,11 +138,12 @@ class MusicCardPlugin(Star):
             song_name(string): 歌曲名
             artist(string): 歌手名,知道就填
         """
-        q = f"{song_name} {artist}".strip()
+        self._reset_if_new_msg(event)
         self._search_count = getattr(self, "_search_count", 0) + 1
         smx = getattr(self, "_max_cards", 2) * 2
         if self._search_count > smx:
             return "不搜了。"
+        q = f"{song_name} {artist}".strip()
         results = await search_netease_multi(q, limit=3)
         if not results:
             return "没找到。"
@@ -148,6 +160,7 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID
         """
+        self._reset_if_new_msg(event)
         self._card_count = getattr(self, "_card_count", 0) + 1
         self._card_count = getattr(self, "_card_count", 0) + 1
         mx = getattr(self, "_max_cards", 2)
