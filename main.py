@@ -117,7 +117,7 @@ class MusicCardPlugin(Star):
 
     def _check_reset(self):
         now = _time.time()
-        if now - self._last_call > 5:
+        if now - self._last_call > 30:
             self._card_sent = False
             self._search_count = 0
         self._last_call = now
