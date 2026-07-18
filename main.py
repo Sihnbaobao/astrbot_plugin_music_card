@@ -133,7 +133,7 @@ class MusicCardPlugin(Star):
         self._check_reset()
         self._search_count += 1
         if self._search_count > 3:
-            return "不想搜了。"
+            return ""
         q = f"{song_name} {artist}".strip()
         results = await search_netease_multi(q, limit=3)
         if not results:
@@ -150,7 +150,7 @@ class MusicCardPlugin(Star):
         """
         self._check_reset()
         if self._card_sent:
-            return "不想发了。"
+            return ""
         self._card_sent = True
         await self._netease_card(event, song_id)
         return "已发送"
