@@ -139,7 +139,7 @@ class MusicCardPlugin(Star):
         if not results:
             return "...没找到"
         lines = [f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}' for s in results]
-        return "\n".join(lines) + "\n\n(中文歌名可能以日语显示,如'魔法'='まほう'。每次只发1首。)"
+        return "\n".join(lines) + "\n\n(中文歌名可能以日语显示,如'魔法'='まほう')"
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
