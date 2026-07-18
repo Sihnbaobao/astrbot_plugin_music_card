@@ -17,11 +17,14 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.0.5")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.1.0")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
         super().__init__(context)
+        cfg = config or {}
+        n = cfg.get("max_cards", 2)
+        self._max_cards = max(1, min(3, int(n) if n else 2))
 
     # ── 消息发送 ──
 
@@ -126,7 +129,8 @@ class MusicCardPlugin(Star):
         """
         q = f"{song_name} {artist}".strip()
         self._search_count = getattr(self, "_search_count", 0) + 1
-        if self._search_count > 5:
+        smx = getattr(self, "_max_cards", 2) * 2
+        if self._search_count > smx:
             return "搜那么多次？烦了。"
         results = await search_netease_multi(q, limit=3)
         if not results:
@@ -145,8 +149,9 @@ class MusicCardPlugin(Star):
             song_id(string): 网易云歌曲ID
         """
         self._card_count = getattr(self, "_card_count", 0) + 1
-        if self._card_count > 2:
-            return "发两首还不够？"
+        mx = getattr(self, "_max_cards", 2)
+        if self._card_count > mx:
+            return f"发{mx}首还不够？"
         await self._netease_card(event, song_id)
-        if self._card_count >= 2:
+        if self._card_count >= mx:
             return "发完了。别要了。"

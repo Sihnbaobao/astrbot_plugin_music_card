@@ -1,23 +1,11 @@
-## v1.0.5
+## v1.1.0
 
-- 优化代码结构，限制重复调用
+- 新增配置项 `max_cards`：可调整每轮最多发几首（1-3）
+- 工具拒绝语改为有人味儿（"发两首还不够？"等）
 
-## v1.0.4
+## v1.0.x
 
-- artist 参数改为可选
-
-## v1.0.3
-
-- search_songs 拆为 song_name + artist 两个参数
-
-## v1.0.2
-
-- 拆分为 search_songs + send_song_card 两个 LLM 工具
-
-## v1.0.1
-
-- 新增 search_song 工具，LLM 可自主搜歌
-
-## v1.0.0
-
+- search_songs + send_song_card 两个 LLM 工具
 - QQ/酷狗/网易云链接转卡片
+- 硬限制防刷屏
+- 代码优化零 lint 告警
