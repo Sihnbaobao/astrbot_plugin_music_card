@@ -27,7 +27,7 @@ class MusicCardPlugin(Star):
         self._max_cards = max(1, min(3, int(n) if n else 2))
         self._card_count = 0
         self._search_count = 0
-        self._last_msg = ""
+        self._last_call = 0
 
     # ── 消息发送 ──
 
@@ -119,12 +119,13 @@ class MusicCardPlugin(Star):
 
     # ── LLM 工具 ──
 
-    def _reset_if_new_msg(self, event):
-        txt = event.message_str or ""
-        if txt != self._last_msg:
+    def _reset_if_new_msg(self):
+        import time
+        now = time.time()
+        if now - self._last_call > 5:
             self._card_count = 0
             self._search_count = 0
-            self._last_msg = txt
+        self._last_call = now
 
 
     @filter.llm_tool(name="search_songs")
@@ -138,7 +139,7 @@ class MusicCardPlugin(Star):
             song_name(string): 歌曲名
             artist(string): 歌手名,知道就填
         """
-        self._reset_if_new_msg(event)
+        self._reset_if_new_msg()
         self._search_count = getattr(self, "_search_count", 0) + 1
         smx = getattr(self, "_max_cards", 2) * 2
         if self._search_count > smx:
@@ -160,7 +161,7 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID
         """
-        self._reset_if_new_msg(event)
+        self._reset_if_new_msg()
         self._card_count = getattr(self, "_card_count", 0) + 1
         self._card_count = getattr(self, "_card_count", 0) + 1
         mx = getattr(self, "_max_cards", 2)
