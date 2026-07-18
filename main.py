@@ -127,17 +127,15 @@ class MusicCardPlugin(Star):
         q = f"{song_name} {artist}".strip()
         self._search_count = getattr(self, "_search_count", 0) + 1
         if self._search_count > 5:
-            return "已搜索5次,不再搜索。请在已有结果中选择或放弃。"
+            return "搜够了。"
         results = await search_netease_multi(q, limit=3)
         if not results:
-            return "未找到。"
-        h = "提示:中文歌名可能以日语原文显示(如'魔法'显示为'まほう')。"
-        h += "歌手匹配且歌名对译即为正确歌曲。"
+            return "没找到。"
         lines = [
             f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}'
             for s in results
         ]
-        return "\n".join(lines) + "\n\n" + h
+        return "\n".join(lines)
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
@@ -148,6 +146,7 @@ class MusicCardPlugin(Star):
         """
         self._card_count = getattr(self, "_card_count", 0) + 1
         if self._card_count > 2:
-            return "已发2首,不要再发更多。"
+            return "已发2首。"
         await self._netease_card(event, song_id)
-        return "卡片已发送"
+        if self._card_count >= 2:
+            return "已发。"
