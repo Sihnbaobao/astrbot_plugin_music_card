@@ -1,4 +1,5 @@
 import re
+import time as _time
 import httpx
 
 from astrbot.core import logger
@@ -22,10 +23,7 @@ class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
         super().__init__(context)
-        cfg = config or {}
-        n = cfg.get("max_cards", 2)
-        self._max_cards = max(1, min(3, int(n) if n else 2))
-        self._card_count = 0
+        self._card_sent = False
         self._search_count = 0
         self._last_call = 0
 
@@ -39,8 +37,7 @@ class MusicCardPlugin(Star):
                     "send_group_msg", group_id=gid, message=message)
             else:
                 await event.bot.api.call_action(
-                    "send_private_msg",
-                    user_id=event.get_sender_id(), message=message)
+                    "send_private_msg", user_id=event.get_sender_id(), message=message)
         except Exception as e:
             logger.error(f"发送失败:{e}")
             raise
@@ -54,7 +51,7 @@ class MusicCardPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
-        self._card_count = 0
+        self._card_sent = False
         self._search_count = 0
         text = event.message_str or ""
 
@@ -81,8 +78,7 @@ class MusicCardPlugin(Star):
         if "y.qq.com" in text or "c6.y.qq.com" in text or "i.y.qq.com" in text:
             info = await parse_qq_card(text)
             if info:
-                ne = await search_netease(
-                    info.get("title", ""), info.get("singer", ""))
+                ne = await search_netease(info.get("title", ""), info.get("singer", ""))
                 if ne:
                     await self._netease_card(event, ne["id"])
                 else:
@@ -119,39 +115,30 @@ class MusicCardPlugin(Star):
 
     # ── LLM 工具 ──
 
-    def _reset_if_new_msg(self):
-        import time
-        now = time.time()
+    def _check_reset(self):
+        now = _time.time()
         if now - self._last_call > 5:
-            self._card_count = 0
+            self._card_sent = False
             self._search_count = 0
         self._last_call = now
 
-
     @filter.llm_tool(name="search_songs")
-    async def search_songs(
-        self, event: AstrMessageEvent, song_name: str, artist: str = ""
-    ):
+    async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str = ""):
         """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
-        搜不到就直接告诉用户没搜到。
 
         Args:
             song_name(string): 歌曲名
             artist(string): 歌手名,知道就填
         """
-        self._reset_if_new_msg()
-        self._search_count = getattr(self, "_search_count", 0) + 1
-        smx = getattr(self, "_max_cards", 2) * 2
-        if self._search_count > smx:
+        self._check_reset()
+        self._search_count += 1
+        if self._search_count > 3:
             return "不搜了。"
         q = f"{song_name} {artist}".strip()
         results = await search_netease_multi(q, limit=3)
         if not results:
             return "没找到。"
-        lines = [
-            f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}'
-            for s in results
-        ]
+        lines = [f'歌名:{s["name"]} 歌手:{s["artist"]} ID:{s["id"]}' for s in results]
         return "\n".join(lines) + "\n\n(中文歌名可能以日语显示,如'魔法'='まほう')"
 
     @filter.llm_tool(name="send_song_card")
@@ -161,11 +148,9 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID
         """
-        self._reset_if_new_msg()
-        self._card_count = getattr(self, "_card_count", 0) + 1
-        self._card_count = getattr(self, "_card_count", 0) + 1
-        mx = getattr(self, "_max_cards", 2)
-        if self._card_count > mx:
+        self._check_reset()
+        if self._card_sent:
             return "不能再发了。"
+        self._card_sent = True
         await self._netease_card(event, song_id)
         return "已发送"

@@ -1,8 +1,0 @@
-{
-  "max_cards": {
-    "description": "每次对话最多发送几首歌曲卡片",
-    "type": "int",
-    "default": 2,
-    "hint": "取值范围 1-3，防止刷屏"
-  }
-}
