@@ -1,5 +1,5 @@
 import re
-import time as _time
+import time
 import httpx
 
 from astrbot.core import logger
@@ -116,7 +116,7 @@ class MusicCardPlugin(Star):
     # ── LLM 工具 ──
 
     def _check_reset(self):
-        now = _time.time()
+        now = time.time()
         if now - self._last_call > 30:
             self._card_sent = False
             self._search_count = 0
