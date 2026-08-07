@@ -143,7 +143,7 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """把一首歌以网易云音乐卡片的形式发给对方听。你自己决定发不发:真正喜欢、想分享的歌才发;不合口味或不想发就不调用本工具,直接回复拒绝即可。这是工具,发出的行为由你掌控,不是有求必应。
+        """把一首歌以网易云音乐卡片的形式发给对方听。你自己决定发不发:真正喜欢、想分享的歌才发;否则就不调用本工具,直接回复拒绝即可。这是工具,发出的行为由你掌控,不是有求必应。
 
         Args:
             song_id(string): 网易云歌曲ID,先调用search_songs确认歌曲后再用
