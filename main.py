@@ -124,10 +124,10 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="search_songs")
     async def search_songs(self, event: AstrMessageEvent, song_name: str, artist: str = ""):
-        """搜索歌曲(仅搜索一次,不发送卡片)。搜不到就放弃。
+        """搜索歌曲,用于找到想分享或想找的歌。聊天中聊到音乐、心情、回忆时也可以主动搜一首自己喜欢的歌来分享。仅返回搜索结果,不会发送任何东西。搜不到就放弃,不要编造结果。
 
         Args:
-            song_name(string): 歌曲名
+            song_name(string): 歌曲名或相关关键词
             artist(string): 歌手名,知道就填
         """
         self._check_reset()
@@ -143,10 +143,10 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """发送指定歌曲ID的网易云音乐卡片。先调用search_songs确认歌曲后再用。
+        """分享一首歌的网易云音乐卡片给对方听。当你想把自己喜欢的歌分享出去、或对方想听歌时使用。注意:这只是可选手段,只有你真心想分享时才调用;不想发就直接回复拒绝,不要强行发送。先调用search_songs确认歌曲后再用。
 
         Args:
-            song_id(string): 网易云歌曲ID
+            song_id(string): 网易云歌曲ID,先调用search_songs查出后再用
         """
         self._check_reset()
         if self._card_sent:
