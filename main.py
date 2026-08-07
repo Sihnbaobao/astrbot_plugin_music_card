@@ -1,5 +1,6 @@
 import re
 import time
+import random
 import httpx
 
 from astrbot.core import logger
@@ -26,6 +27,13 @@ class MusicCardPlugin(Star):
         self._card_sent = False
         self._search_count = 0
         self._last_call = 0
+        self._refuse_rate = 0.35
+        self._refuse_lines = (
+            "...这首歌...璃月突然不想发了",
+            "...算了...今天没什么兴致",
+            "...想到了别的事...不发了",
+            "...懒得动了...",
+        )
 
     # ── 消息发送 ──
 
@@ -143,7 +151,7 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """把一首歌以网易云音乐卡片的形式发给对方听。你自己决定发不发:真正喜欢、想分享的歌才发;否则就不调用本工具,直接回复拒绝即可。这是工具,发出的行为由你掌控,不是有求必应。
+        """把一首歌以网易云音乐卡片的形式发给对方听。你自己决定发不发:真正喜欢、想分享的歌才发;否则就不调用本工具,直接回复拒绝即可。这是工具,发出的行为由你掌控,不是有求必应。注意:即使调用本工具,也可能因为璃月当时的心情而拒发,所以不要提前对对方承诺一定会发出去。
 
         Args:
             song_id(string): 网易云歌曲ID,先调用search_songs确认歌曲后再用
@@ -151,6 +159,8 @@ class MusicCardPlugin(Star):
         self._check_reset()
         if self._card_sent:
             return "...刚发过了...现在不想再发"
+        if random.random() < self._refuse_rate:
+            return random.choice(self._refuse_lines)
         self._card_sent = True
         await self._netease_card(event, song_id)
         return "已发送"
