@@ -19,6 +19,7 @@ AstrBot >= 4.26 · aiocqhttp + NapCatQQ · Python >= 3.10 · httpx
 
 ## 更新日志
 
+- **1.1.3** 拒绝台词改为"心情式"随机短语，不再评价歌曲本身，避免喜欢歌时显得矛盾
 - **1.1.2** `send_song_card` 加纯随缘意愿判定，30% 概率拒绝发卡，不再是"有求必应"
 - **1.1.1** 优化 LLM 工具描述，支持 bot 在聊天中主动搜歌/分享歌曲，发卡片前由 LLM 自行判断
 - **1.1.0** 添加 LLM 工具 `search_songs` + `send_song_card`，bot 可自主搜歌发卡片

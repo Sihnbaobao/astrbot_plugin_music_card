@@ -28,6 +28,12 @@ class MusicCardPlugin(Star):
         self._search_count = 0
         self._last_call = 0
         self._refuse_rate = 0.3
+        self._refuse_lines = (
+            "...璃月不想发...自己去找吧",
+            "...今天没什么心情发歌",
+            "...找到了...但璃月现在不想动",
+            "...不想发...别催了",
+        )
 
     # ── 消息发送 ──
 
@@ -155,7 +161,7 @@ class MusicCardPlugin(Star):
             return "...璃月不想发了"
         # 纯随缘:每次调用都有固定概率不想发,没有理由
         if random.random() < self._refuse_rate:
-            return "...这首...璃月不想发"
+            return random.choice(self._refuse_lines)
         self._card_sent = True
         await self._netease_card(event, song_id)
         return "已发送"
