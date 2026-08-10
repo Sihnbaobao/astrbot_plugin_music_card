@@ -1,3 +1,9 @@
+## v1.1.7
+
+- 新增 `.editorconfig` 规范代码格式
+- 同步 `main.py` 中 `@register` 版本号与 `metadata.yaml` 一致
+- 清理冗余的 QQ 音乐子域名判断（`c6.y.qq.com`/`i.y.qq.com` 已被 `y.qq.com` 覆盖）
+
 ## v1.1.6
 
 - 恢复插件层概率把关（35% 拒发），拒绝台词为"心情式"不评价歌曲

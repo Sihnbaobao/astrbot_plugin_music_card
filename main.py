@@ -14,12 +14,12 @@ from .kugou import parse_kugou_card
 
 MUSIC_DOMAINS = (
     "music.163.com", "163cn.tv",
-    "y.qq.com", "c6.y.qq.com", "i.y.qq.com",
+    "y.qq.com",
     "kugou.com",
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.1.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.1.7")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -83,7 +83,7 @@ class MusicCardPlugin(Star):
                     return
 
         # QQ音乐
-        if "y.qq.com" in text or "c6.y.qq.com" in text or "i.y.qq.com" in text:
+        if "y.qq.com" in text:
             info = await parse_qq_card(text)
             if info:
                 ne = await search_netease(info.get("title", ""), info.get("singer", ""))
