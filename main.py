@@ -19,7 +19,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.1")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -57,40 +57,67 @@ class MusicCardPlugin(Star):
 
     # ── 链接处理 ──
 
-    def _extract_music_urls(self, event):
-        """从消息中提取所有音乐链接。
+    def _card_info(self, event):
+        """解析消息段里的 JSON 卡片(QQ/网易云分享卡片),返回 (描述文本, url列表, 是否卡片)。
 
-        优先取消息段里的 JSON 卡片(QQ 分享卡片/网易云卡片)中的跳转链接,
-        其次是纯文本里的 URL。
+        卡片消息在 aiocqhttp 通道里是未展开的 Json 段,这里把它转成
+        可读文本,让 LLM 也能"看到"歌曲信息。
         """
+        desc = ""
         urls = []
+        is_card = False
         for seg in event.get_messages():
-            if getattr(seg, "type", None) == "Json":
-                data = getattr(seg, "data", None)
-                if isinstance(data, dict):
-                    def _walk(node):
-                        if isinstance(node, dict):
-                            for k, v in node.items():
-                                if k.lower() in ("jumpurl", "jump_url", "musicurl", "music_url", "url"):
-                                    if isinstance(v, str) and v.startswith("http"):
-                                        urls.append(v)
-                                _walk(v)
-                        elif isinstance(node, list):
-                            for item in node:
-                                _walk(item)
-                    _walk(data)
-        text = event.message_str or ""
-        urls.extend(re.findall(r"https?://[^\s]+", text))
-        return urls
+            if getattr(seg, "type", None) != "Json":
+                continue
+            is_card = True
+            data = getattr(seg, "data", None)
+            if not isinstance(data, dict):
+                continue
+
+            def _walk(node):
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        if k.lower() in ("jumpurl", "jump_url", "musicurl", "music_url", "url"):
+                            if isinstance(v, str) and v.startswith("http"):
+                                urls.append(v)
+                        _walk(v)
+                elif isinstance(node, list):
+                    for item in node:
+                        _walk(item)
+
+            _walk(data)
+            meta = data.get("meta", {})
+            for section in meta.values():
+                if not isinstance(section, dict):
+                    continue
+                title = section.get("title") or section.get("songname")
+                singer = section.get("desc") or section.get("singer")
+                if title:
+                    desc = f"分享歌曲:{title}"
+                    if singer:
+                        desc += f" 歌手:{singer}"
+                    return desc, urls, True
+        return desc, urls, is_card
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
         self._card_sent = False
         self._search_count = 0
+
+        card_desc, card_urls, is_card = self._card_info(event)
         text = event.message_str or ""
-        card_urls = self._extract_music_urls(event)
         all_text = text + " " + " ".join(card_urls)
 
+        # 有 JSON 卡片:只把信息喂给 LLM,不重复发卡片
+        if is_card:
+            info = card_desc or "收到一张音乐分享卡片"
+            if card_urls:
+                info += f" 链接:{' '.join(card_urls)}"
+            event.message_str = info
+            event.message_obj.message = []
+            return
+
+        # 纯文本音乐链接:才转换发卡片
         # 网易云
         if "music.163.com" in all_text or "163cn.tv" in all_text:
             for u in re.findall(r"https?://[^\s]+", all_text):
@@ -106,7 +133,6 @@ class MusicCardPlugin(Star):
                     except Exception:
                         pass
                 if "/album/" in url:
-                    # 专辑/歌单等非单曲链接不做转换
                     continue
                 m2 = re.search(r"/song\?id=(\d+)", url) or re.search(r"id=(\d+)", url)
                 if m2:
