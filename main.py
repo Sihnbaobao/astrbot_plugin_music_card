@@ -19,7 +19,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.1.7")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.0")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -57,17 +57,46 @@ class MusicCardPlugin(Star):
 
     # ── 链接处理 ──
 
+    def _extract_music_urls(self, event):
+        """从消息中提取所有音乐链接。
+
+        优先取消息段里的 JSON 卡片(QQ 分享卡片/网易云卡片)中的跳转链接,
+        其次是纯文本里的 URL。
+        """
+        urls = []
+        for seg in event.get_messages():
+            if getattr(seg, "type", None) == "Json":
+                data = getattr(seg, "data", None)
+                if isinstance(data, dict):
+                    def _walk(node):
+                        if isinstance(node, dict):
+                            for k, v in node.items():
+                                if k.lower() in ("jumpurl", "jump_url", "musicurl", "music_url", "url"):
+                                    if isinstance(v, str) and v.startswith("http"):
+                                        urls.append(v)
+                                _walk(v)
+                        elif isinstance(node, list):
+                            for item in node:
+                                _walk(item)
+                    _walk(data)
+        text = event.message_str or ""
+        urls.extend(re.findall(r"https?://[^\s]+", text))
+        return urls
+
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def music_card(self, event: AstrMessageEvent):
         self._card_sent = False
         self._search_count = 0
         text = event.message_str or ""
+        card_urls = self._extract_music_urls(event)
+        all_text = text + " " + " ".join(card_urls)
 
         # 网易云
-        if "music.163.com" in text or "163cn.tv" in text:
-            m = re.search(r"https?://[^\s]+", text)
-            if m:
-                url = m.group(0)
+        if "music.163.com" in all_text or "163cn.tv" in all_text:
+            for u in re.findall(r"https?://[^\s]+", all_text):
+                if "music.163.com" not in u and "163cn.tv" not in u:
+                    continue
+                url = u
                 if "163cn.tv" in url:
                     try:
                         async with httpx.AsyncClient(
@@ -76,15 +105,20 @@ class MusicCardPlugin(Star):
                             url = str((await c.get(url)).url)
                     except Exception:
                         pass
-                m2 = re.search(r"id=(\d+)", url)
+                if "/album/" in url:
+                    # 专辑/歌单等非单曲链接不做转换
+                    continue
+                m2 = re.search(r"/song\?id=(\d+)", url) or re.search(r"id=(\d+)", url)
                 if m2:
                     await self._netease_card(event, m2.group(1))
                     event.stop_event()
                     return
+            event.stop_event()
+            return
 
         # QQ音乐
-        if "y.qq.com" in text:
-            info = await parse_qq_card(text)
+        if "y.qq.com" in all_text:
+            info = await parse_qq_card(all_text)
             if info:
                 ne = await search_netease(info.get("title", ""), info.get("singer", ""))
                 if ne:
@@ -95,8 +129,8 @@ class MusicCardPlugin(Star):
             return
 
         # 酷狗
-        if "kugou.com" in text:
-            info = await parse_kugou_card(text)
+        if "kugou.com" in all_text:
+            info = await parse_kugou_card(all_text)
             if info:
                 ne = await search_netease(info["title"], info["singer"])
                 if ne:
@@ -104,7 +138,7 @@ class MusicCardPlugin(Star):
             event.stop_event()
             return
 
-        if any(k in text for k in MUSIC_DOMAINS):
+        if any(k in all_text for k in MUSIC_DOMAINS):
             event.stop_event()
 
     async def _custom_card(self, event, qq):
