@@ -20,7 +20,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.3")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.4")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -28,6 +28,7 @@ class MusicCardPlugin(Star):
         self._card_sent = False
         self._search_count = 0
         self._last_call = 0
+        self._native_broken_until = 0  # 原生163卡片失败后的一段时间内跳过原生,直接发自建卡片
         self._refuse_rate = 0.35
         self._refuse_lines = (
             "...这首歌...璃月突然不想发了",
@@ -119,13 +120,17 @@ class MusicCardPlugin(Star):
         if not exists:
             logger.warning(f"163卡:歌曲不存在 id={song_id},不发卡片")
             return False
-        # 1) 原生 163 卡片
-        try:
-            await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
-            logger.info(f"163卡:id={song_id}")
-            return True
-        except Exception as e:
-            logger.warning(f"163原生卡片发送失败({e}),改用自建卡片")
+        # 1) 原生 163 卡片(近期失败过则跳过,直接发自建卡片)
+        if time.time() < self._native_broken_until:
+            logger.info("原生卡片近期不可用,直接发自建卡片")
+        else:
+            try:
+                await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
+                logger.info(f"163卡:id={song_id}")
+                return True
+            except Exception as e:
+                logger.warning(f"163原生卡片发送失败({e}),改用自建卡片")
+                self._native_broken_until = time.time() + 600
         # 2) 自建音乐分享卡片(绕过签名服务)
         if not song.get("name"):
             logger.warning("无歌曲信息可用,放弃发送")

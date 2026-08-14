@@ -19,6 +19,7 @@ AstrBot >= 4.26 · aiocqhttp + NapCatQQ · Python >= 3.10 · httpx
 
 ## 更新日志
 
+- **1.3.4** 原生卡片失败后 10 分钟内直接发自建卡片,减少无效发送
 - **1.3.3** 自建卡片改用真实卡片同款 com.tencent.music.lua 格式
 - **1.3.2** 收到分享卡片时输出原始 JSON 日志(调试用)
 - **1.3.1** 修复自建卡片缺少 import json 导致的报错
