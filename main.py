@@ -1,6 +1,7 @@
 import re
 import time
 import random
+import json
 import httpx
 
 from astrbot.core import logger
@@ -19,7 +20,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.1")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):

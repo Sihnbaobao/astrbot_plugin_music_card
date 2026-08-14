@@ -1,3 +1,7 @@
+## v1.3.1
+
+- 修复:自建卡片缺少 `import json` 导致运行时 NameError 的问题
+
 ## v1.3.0
 
 - 新增:原生 163 卡片发送失败时(如 NapCat 音乐签名服务不可用),自动降级为插件自建的 QQ 音乐分享卡片(com.tencent.structmsg JSON 段)直接发送,不再依赖第三方签名服务
