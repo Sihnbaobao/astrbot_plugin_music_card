@@ -19,7 +19,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.3")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.4")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -50,28 +50,15 @@ class MusicCardPlugin(Star):
             logger.error(f"发送失败:{e}")
             raise
 
-    def _song_text(self, song):
-        """把歌曲信息拼成可读文本,作为卡片失败时的降级消息(避免重复发原链接)。"""
-        name = song.get("name") or ""
-        artist = song.get("artist") or ""
-        url = song.get("url") or ""
-        if not name and not artist:
-            return url
-        text = f"🎵《{name}》" if name else "🎵"
-        if artist:
-            text += f" - {artist}"
-        if url:
-            text += f"\n{url}"
-        return text
-
     async def _netease_card(self, event, song_id):
-        """发网易云音乐卡片。卡片失败时降级为带歌名的文字消息。返回是否成功发出。"""
+        """发网易云音乐卡片。卡片发不出时静默放弃,不做任何降级发送。返回是否成功发出。"""
         try:
             song = await get_netease_song(song_id)
+            exists = song is not None
         except Exception as e:
             logger.warning(f"163卡:歌曲信息查询失败({e}),直接尝试发卡")
-            song = {"name": "", "artist": "", "url": f"https://music.163.com/song?id={song_id}"}
-        if song is None:
+            exists = True  # 查询失败不代表歌曲不存在,照常尝试发卡
+        if not exists:
             logger.warning(f"163卡:歌曲不存在 id={song_id},不发卡片")
             return False
         try:
@@ -79,16 +66,8 @@ class MusicCardPlugin(Star):
             logger.info(f"163卡:id={song_id}")
             return True
         except Exception as e:
-            logger.warning(f"163卡片发送失败({e}),降级为文字消息")
-            if not (song.get("name") or song.get("artist")):
-                logger.warning("无歌曲信息可用,放弃降级发送(原链接已在群里)")
-                return False
-            try:
-                await self._send(event, self._song_text(song))
-                return True
-            except Exception as e2:
-                logger.warning(f"文字消息也发送失败:{e2}")
-                return False
+            logger.warning(f"163卡片发送失败({e}),静默放弃(原链接已在群里,不降级发送)")
+            return False
 
     # ── 链接处理 ──
 
@@ -217,22 +196,7 @@ class MusicCardPlugin(Star):
                 }
             }])
         except Exception as e:
-            logger.warning(f"自定义音乐卡片发送失败({e}),降级为文字消息")
-            title = qq.get("title", "") or "QQ音乐"
-            singer = qq.get("singer", "")
-            url = qq.get("url", "")
-            if not url and not title:
-                logger.warning("无可用信息,放弃降级发送")
-                return
-            text = f"🎵《{title}》"
-            if singer:
-                text += f" - {singer}"
-            if url:
-                text += f"\n{url}"
-            try:
-                await self._send(event, text)
-            except Exception as e2:
-                logger.warning(f"文字消息也发送失败:{e2}")
+            logger.warning(f"自定义音乐卡片发送失败({e}),静默放弃(不降级发送)")
 
     # ── LLM 工具 ──
 
@@ -269,7 +233,7 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID,先调用search_songs确认歌曲后再用
 
-        若歌曲不存在,本工具会返回失败说明;平台发不出卡片时会以带歌名的文字形式发送,不会谎报"已发送"。
+        若歌曲不存在或平台发不出卡片,本工具会返回失败说明,不会发送任何内容,也不会谎报"已发送"。
         """
         self._check_reset()
         if self._card_sent:
