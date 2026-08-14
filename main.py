@@ -8,7 +8,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Star, register
 
 from .qqcard import parse_qq_card
-from .netease import search_netease, search_netease_multi
+from .netease import search_netease, search_netease_multi, get_netease_song
 from .kugou import parse_kugou_card
 
 
@@ -19,7 +19,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.2.2")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -51,9 +51,27 @@ class MusicCardPlugin(Star):
             raise
 
     async def _netease_card(self, event, song_id):
-        msg = [{"type": "music", "data": {"type": "163", "id": song_id}}]
-        await self._send(event, msg)
-        logger.info(f"163卡:id={song_id}")
+        """发网易云音乐卡片。发送失败时兜底发歌曲链接。返回是否成功发出。"""
+        try:
+            song = await get_netease_song(song_id)
+        except Exception as e:
+            logger.warning(f"163卡:歌曲信息查询失败({e}),直接尝试发卡")
+            song = {"url": f"https://music.163.com/song?id={song_id}"}
+        if song is None:
+            logger.warning(f"163卡:歌曲不存在 id={song_id},不发卡片")
+            return False
+        try:
+            await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
+            logger.info(f"163卡:id={song_id}")
+            return True
+        except Exception as e:
+            logger.warning(f"163卡片发送失败({e}),改为发送歌曲链接")
+            try:
+                await self._send(event, song["url"])
+                return True
+            except Exception as e2:
+                logger.warning(f"链接兜底也发送失败:{e2}")
+                return False
 
     # ── 链接处理 ──
 
@@ -168,18 +186,29 @@ class MusicCardPlugin(Star):
             event.stop_event()
 
     async def _custom_card(self, event, qq):
-        await self._send(event, [{
-            "type": "music",
-            "data": {
-                "type": "custom",
-                "url": qq.get("url", ""),
-                "audio": qq.get("audio", ""),
-                "image": qq.get("pic", ""),
-                "title": qq.get("title", "QQ音乐"),
-                "content": qq.get("singer", ""),
-                "app": "QQ音乐",
-            }
-        }])
+        try:
+            await self._send(event, [{
+                "type": "music",
+                "data": {
+                    "type": "custom",
+                    "url": qq.get("url", ""),
+                    "audio": qq.get("audio", ""),
+                    "image": qq.get("pic", ""),
+                    "title": qq.get("title", "QQ音乐"),
+                    "content": qq.get("singer", ""),
+                    "app": "QQ音乐",
+                }
+            }])
+        except Exception as e:
+            logger.warning(f"自定义音乐卡片发送失败({e}),改为发送歌曲链接")
+            url = qq.get("url", "")
+            if url:
+                try:
+                    await self._send(event, url)
+                except Exception as e2:
+                    logger.warning(f"链接兜底也发送失败:{e2}")
+            else:
+                logger.warning("无可用链接,放弃发送")
 
     # ── LLM 工具 ──
 
@@ -215,6 +244,8 @@ class MusicCardPlugin(Star):
 
         Args:
             song_id(string): 网易云歌曲ID,先调用search_songs确认歌曲后再用
+
+        若歌曲不存在或平台发不出卡片,本工具会返回失败说明,不会谎报"已发送"。
         """
         self._check_reset()
         if self._card_sent:
@@ -222,5 +253,7 @@ class MusicCardPlugin(Star):
         if random.random() < self._refuse_rate:
             return random.choice(self._refuse_lines)
         self._card_sent = True
-        await self._netease_card(event, song_id)
-        return "已发送"
+        ok = await self._netease_card(event, song_id)
+        if ok:
+            return "已发送"
+        return "...发不出去...算了"

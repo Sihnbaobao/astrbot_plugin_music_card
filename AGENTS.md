@@ -2,15 +2,17 @@
 
 本文件是给 AI 助手（opencode）看的规则，改代码前先读这里。
 
-## 每次改动代码必须同步的 3 处
+## 每次改动代码必须同步的 5 处
 
 任何影响插件功能的修改（新增功能、修 bug、优化、改工具描述等）都必须：
 
 1. **更新版本号**：`metadata.yaml` 里的 `version` 递增（patch/fix 加一位小数位，如 `1.1.0` -> `1.1.1`；新功能升 `1.2.0`）。
 2. **更新 `changelog.md`**：在文件顶部新增该版本的条目，用 `## vX.X.X` 格式，中文描述改动。
 3. **同步 `README.md`**：在"更新日志"一节顶部加上对应版本条目，格式为 `- **X.X.X** 改动描述`。
+4. **同步插件源版本号**：修改 `D:\GithubProjects\astrbot-plugin-source\plugins.json` 中本插件记录的 `version` 为 `metadata.yaml` 的新版本号，并在该仓库单独 commit 后推送（`https://github.com/Sihnbaobao/astrbot-plugin-source`）。
+5. **同步代码内版本号**：`main.py` 中 `@register(...)` 的版本号与 `metadata.yaml` 一致。
 
-三处缺一不可，改完要一起 commit。
+以上缺一不可，改完要一起 commit（插件源仓库单独 commit 并推送）。
 
 ## 只改文档不升版本
 
@@ -31,7 +33,8 @@
 1. 递增 `metadata.yaml` 版本号。
 2. 更新 `changelog.md`。
 3. 更新 `README.md`。
-4. 全部一起 commit 并 push。
+4. 同步插件源版本号（`astrbot-plugin-source\plugins.json`）并推送插件源仓库。
+5. 全部一起 commit 并 push。
 
 ## 注意事项
 
