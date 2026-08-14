@@ -28,9 +28,9 @@ async def get_netease_song(song_id):
         "id": str(s.get("id") or song_id),
         "name": s.get("name", ""),
         "artist": artists[0].get("name", "") if artists else "",
-        "url": f"https://music.163.com/song?id={song_id}",
+        "url": f"https://y.music.163.com/m/song?id={song_id}",
         "pic": pic,
-        "audio": f"https://music.163.com/song/media/outer/url?id={song_id}.mp3",
+        "audio": f"https://music.163.com/song/media/outer/url?id={song_id}&sc=wm&tn=",
     }
 
 
