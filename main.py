@@ -20,7 +20,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.2")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -148,6 +148,7 @@ class MusicCardPlugin(Star):
             data = getattr(seg, "data", None)
             if not isinstance(data, dict):
                 continue
+            logger.info(f"收到卡片JSON: {json.dumps(data, ensure_ascii=False)}")
 
             def _walk(node):
                 if isinstance(node, dict):
