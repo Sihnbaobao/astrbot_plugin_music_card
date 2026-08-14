@@ -4,8 +4,9 @@ from astrbot.core import logger
 
 
 async def get_netease_song(song_id):
-    """按歌曲 ID 查询网易云歌曲,返回 {id,name,artist,url}。
+    """按歌曲 ID 查询网易云歌曲,返回 {id,name,artist,url,pic,audio}。
 
+    pic 为封面图,audio 为官方外链播放地址,用于自建分享卡片;
     歌曲不存在(或不是歌曲,如歌单/用户 ID)时返回 None;
     网络/接口异常时抛出异常,由调用方决定是否降级发送。
     """
@@ -21,11 +22,15 @@ async def get_netease_song(song_id):
         return None
     s = songs[0]
     artists = s.get("artists") or []
+    album = s.get("album") or {}
+    pic = album.get("picUrl") or (artists[0].get("img1v1Url") if artists else "") or ""
     return {
         "id": str(s.get("id") or song_id),
         "name": s.get("name", ""),
         "artist": artists[0].get("name", "") if artists else "",
         "url": f"https://music.163.com/song?id={song_id}",
+        "pic": pic,
+        "audio": f"https://music.163.com/song/media/outer/url?id={song_id}.mp3",
     }
 
 
