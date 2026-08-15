@@ -1,7 +1,6 @@
 import re
 import time
 import random
-import json
 import httpx
 
 from astrbot.core import logger
@@ -20,7 +19,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.5")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.6")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -28,8 +27,7 @@ class MusicCardPlugin(Star):
         self._card_sent = False
         self._search_count = 0
         self._last_call = 0
-        self._native_broken_until = 0  # 原生163卡片失败后的一段时间内跳过原生,直接发自建卡片
-        self._last_card_json = ""      # 最近一次收到的卡片原始JSON(调试用)
+        self._native_broken_until = 0  # 原生163卡片失败后的一段时间内跳过原生,减少无效发送
         self._refuse_rate = 0.35
         self._refuse_lines = (
             "...这首歌...璃月突然不想发了",
@@ -53,64 +51,11 @@ class MusicCardPlugin(Star):
             logger.error(f"发送失败:{e}")
             raise
 
-    def _music_card_json(self, info, tag="网易云音乐", uin=""):
-        """构造 QQ 音乐分享卡片 JSON(com.tencent.music.lua 格式)。
-
-        与手机网易云 App 分享到 QQ 的真实卡片同款结构,由 QQ 客户端直接
-        渲染,不依赖 NapCat 的第三方签名服务。
-        """
-        title = info.get("name") or ""
-        artist = info.get("artist") or ""
-        try:
-            uin = int(uin)  # 真实卡片的 uin 是数字
-        except (TypeError, ValueError):
-            uin = ""
-        now = int(time.time())
-        appid = 100495085 if tag == "网易云音乐" else 100497308
-        appid_str = str(appid)
-        # QQ 应用图标路径:appid 补零到 10 位后去掉首位,每两位一组
-        icon_path = "/".join(appid_str.zfill(10)[2:][i:i + 2] for i in range(0, 8, 2))
-        card = {
-            "app": "com.tencent.music.lua",
-            "bizsrc": "qqconnect.sdkshare_music",
-            "config": {
-                "ctime": now,
-                "forward": 1,
-                "token": f"{random.getrandbits(128):032x}",
-                "type": "normal",
-            },
-            "extra": {
-                "app_type": 1,
-                "appid": appid,
-                "msg_seq": random.getrandbits(63),
-                "uin": uin,
-            },
-            "meta": {
-                "music": {
-                    "app_type": 1,
-                    "appid": appid,
-                    "ctime": now,
-                    "desc": artist,
-                    "jumpUrl": info.get("url", ""),
-                    "musicUrl": info.get("audio", ""),
-                    "preview": info.get("pic", ""),
-                    "tag": tag,
-                    "tagIcon": f"https://i.gtimg.cn/open/app_icon/{icon_path}/{appid_str}_100_m.png",
-                    "title": title,
-                    "uin": uin,
-                }
-            },
-            "prompt": f"[分享]{title}",
-            "ver": "0.0.0.1",
-            "view": "music",
-        }
-        return json.dumps(card, ensure_ascii=False)
-
     async def _netease_card(self, event, song_id):
         """发网易云音乐卡片。返回是否成功发出。
 
-        优先发原生 163 卡片;NapCat 签名服务不可用时,降级为自建
-        structmsg 卡片(JSON 段)直接发送,绕过签名服务;再失败则静默。
+        只尝试原生 163 卡片;失败(如 NapCat 签名服务不可用)时静默,
+        不做任何降级发送。原生卡片近期失败过则直接跳过,减少无效发送。
         """
         try:
             song = await get_netease_song(song_id)
@@ -121,34 +66,16 @@ class MusicCardPlugin(Star):
         if not exists:
             logger.warning(f"163卡:歌曲不存在 id={song_id},不发卡片")
             return False
-        # 1) 原生 163 卡片(近期失败过则跳过,直接发自建卡片)
         if time.time() < self._native_broken_until:
-            logger.info("原生卡片近期不可用,直接发自建卡片")
-        else:
-            try:
-                await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
-                logger.info(f"163卡:id={song_id}")
-                return True
-            except Exception as e:
-                logger.warning(f"163原生卡片发送失败({e}),改用自建卡片")
-                self._native_broken_until = time.time() + 600
-        # 2) 自建音乐分享卡片(绕过签名服务)
-        if not song.get("name"):
-            logger.warning("无歌曲信息可用,放弃发送")
+            logger.info("原生卡片近期不可用,跳过")
             return False
         try:
-            uin = event.get_self_id() or ""
-        except Exception:
-            uin = ""
-        try:
-            await self._send(event, [{
-                "type": "json",
-                "data": {"data": self._music_card_json(song, uin=uin)},
-            }])
-            logger.info(f"163自建卡片:id={song_id}")
+            await self._send(event, [{"type": "music", "data": {"type": "163", "id": song_id}}])
+            logger.info(f"163卡:id={song_id}")
             return True
         except Exception as e:
-            logger.warning(f"自建卡片也发送失败({e}),静默放弃")
+            logger.warning(f"163卡片发送失败({e}),静默放弃")
+            self._native_broken_until = time.time() + 600
             return False
 
     # ── 链接处理 ──
@@ -169,8 +96,6 @@ class MusicCardPlugin(Star):
             data = getattr(seg, "data", None)
             if not isinstance(data, dict):
                 continue
-            logger.info(f"收到卡片JSON: {json.dumps(data, ensure_ascii=False)}")
-            self._last_card_json = json.dumps(data, ensure_ascii=False)
 
             def _walk(node):
                 if isinstance(node, dict):
@@ -204,18 +129,6 @@ class MusicCardPlugin(Star):
 
         card_desc, card_urls, is_card = self._card_info(event)
         text = event.message_str or ""
-        # 调试指令:把最近收到的一张卡片原样转发,验证环境能否发送 lightApp 卡片
-        if text.strip() == "!testcard":
-            if self._last_card_json:
-                await self._send(event, [{
-                    "type": "json",
-                    "data": {"data": self._last_card_json},
-                }])
-                logger.info("测试:已原样转发最近收到的卡片JSON")
-            else:
-                logger.warning("测试:尚未收到过卡片,请先让别人发一张分享卡片")
-            event.stop_event()
-            return
         all_text = text + " " + " ".join(card_urls)
 
         # 有 JSON 卡片:只把信息喂给 LLM,不重复发卡片
@@ -278,7 +191,7 @@ class MusicCardPlugin(Star):
             event.stop_event()
 
     async def _custom_card(self, event, qq):
-        """发 QQ 音乐自定义卡片;失败时降级为自建 structmsg 卡片。"""
+        """发 QQ 音乐自定义卡片;失败时静默放弃。"""
         try:
             await self._send(event, [{
                 "type": "music",
@@ -292,31 +205,8 @@ class MusicCardPlugin(Star):
                     "app": "QQ音乐",
                 }
             }])
-            return
         except Exception as e:
-            logger.warning(f"自定义音乐卡片发送失败({e}),改用自建卡片")
-        title = qq.get("title", "") or "QQ音乐"
-        if not title:
-            logger.warning("无歌曲信息可用,放弃发送")
-            return
-        info = {
-            "name": title,
-            "artist": qq.get("singer", ""),
-            "url": qq.get("url", ""),
-            "pic": qq.get("pic", ""),
-            "audio": qq.get("audio", ""),
-        }
-        try:
-            uin = event.get_self_id() or ""
-        except Exception:
-            uin = ""
-        try:
-            await self._send(event, [{
-                "type": "json",
-                "data": {"data": self._music_card_json(info, tag="QQ音乐", uin=uin)},
-            }])
-        except Exception as e2:
-            logger.warning(f"自建卡片也发送失败:{e2}")
+            logger.warning(f"自定义音乐卡片发送失败({e}),静默放弃")
 
     # ── LLM 工具 ──
 
@@ -353,7 +243,7 @@ class MusicCardPlugin(Star):
         Args:
             song_id(string): 网易云歌曲ID,先调用search_songs确认歌曲后再用
 
-        若歌曲不存在,本工具会返回失败说明;发不出原生卡片时会尝试自建卡片,仍失败则返回失败说明,不会谎报"已发送"。
+        若歌曲不存在或平台发不出卡片,本工具会返回失败说明,不会谎报"已发送"。
         """
         self._check_reset()
         if self._card_sent:

@@ -19,6 +19,7 @@ AstrBot >= 4.26 · aiocqhttp + NapCatQQ · Python >= 3.10 · httpx
 
 ## 更新日志
 
+- **1.3.6** 回退自建卡片方案(环境发不了 lightApp),恢复静默;移除调试代码
 - **1.3.5** 新增 !testcard 调试指令(临时)
 - **1.3.4** 原生卡片失败后 10 分钟内直接发自建卡片,减少无效发送
 - **1.3.3** 自建卡片改用真实卡片同款 com.tencent.music.lua 格式
