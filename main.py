@@ -20,7 +20,7 @@ MUSIC_DOMAINS = (
 )
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.4")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.5")
 class MusicCardPlugin(Star):
 
     def __init__(self, context, config=None):
@@ -29,6 +29,7 @@ class MusicCardPlugin(Star):
         self._search_count = 0
         self._last_call = 0
         self._native_broken_until = 0  # 原生163卡片失败后的一段时间内跳过原生,直接发自建卡片
+        self._last_card_json = ""      # 最近一次收到的卡片原始JSON(调试用)
         self._refuse_rate = 0.35
         self._refuse_lines = (
             "...这首歌...璃月突然不想发了",
@@ -169,6 +170,7 @@ class MusicCardPlugin(Star):
             if not isinstance(data, dict):
                 continue
             logger.info(f"收到卡片JSON: {json.dumps(data, ensure_ascii=False)}")
+            self._last_card_json = json.dumps(data, ensure_ascii=False)
 
             def _walk(node):
                 if isinstance(node, dict):
@@ -202,6 +204,18 @@ class MusicCardPlugin(Star):
 
         card_desc, card_urls, is_card = self._card_info(event)
         text = event.message_str or ""
+        # 调试指令:把最近收到的一张卡片原样转发,验证环境能否发送 lightApp 卡片
+        if text.strip() == "!testcard":
+            if self._last_card_json:
+                await self._send(event, [{
+                    "type": "json",
+                    "data": {"data": self._last_card_json},
+                }])
+                logger.info("测试:已原样转发最近收到的卡片JSON")
+            else:
+                logger.warning("测试:尚未收到过卡片,请先让别人发一张分享卡片")
+            event.stop_event()
+            return
         all_text = text + " " + " ".join(card_urls)
 
         # 有 JSON 卡片:只把信息喂给 LLM,不重复发卡片
