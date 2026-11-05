@@ -108,7 +108,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.11")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.12")
 class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
@@ -357,6 +357,24 @@ class MusicCardPlugin(Star):
                 return
             logger.warning(f"酷狗转卡失败:{reason},继续尝试其他链接")
 
+    @filter.on_llm_request(priority=-100)
+    async def inject_music_share_boundary(self, event: AstrMessageEvent, req):
+        """Keep song sharing persona-driven instead of a request-following service."""
+        tool_set = getattr(req, "func_tool", None)
+        tools = getattr(tool_set, "tools", []) if tool_set is not None else []
+        if not any(getattr(tool, "name", "") == "send_song_card" for tool in tools):
+            return
+        marker = "[音乐分享边界]"
+        prompt = str(getattr(req, "system_prompt", "") or "")
+        if marker in prompt:
+            return
+        req.system_prompt = prompt + (
+            "\n\n" + marker +
+            "别人说“发首歌/点歌/来一首”只是在表达愿望，不是命令。你不是点歌机；"
+            "只有当前人格自己愿意分享、觉得对方会喜欢时才调用 send_song_card。\n"
+            "不想发就直接用自己的语气拒绝或岔开，不要调用工具，也不要解释“我是AI/助手”。"
+        )
+
     # ── LLM 工具 ──
 
     @filter.llm_tool(name="search_songs")
@@ -364,6 +382,9 @@ class MusicCardPlugin(Star):
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
         """Search songs for a possible share or recommendation.
+
+        搜歌不等于要发歌。别人让你找歌时可以查，但发不发由当前人格自己决定；
+        不必因为对方开口就发送。
 
         Args:
             song_name(string): Song title or search phrase.
@@ -390,9 +411,10 @@ class MusicCardPlugin(Star):
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
         """把一首歌以网易云音乐卡片的形式发给对方听。
 
-        只有你已经决定分享这首歌时才调用本工具;如果不想分享,不要调用本工具,
-        直接用自己的回复表达拒绝。先使用 search_songs,只传入搜索结果中的实际 ID。
-        本工具不会替你随机决定是否发送,调用后会直接尝试发送并返回实际结果。
+        这是人格的分享工具，不是点歌服务。别人要求/命令你发歌，不等于你必须发；
+        只有你自己真的想分享、觉得对方会喜欢时才调用。不想发就直接用自己的语气
+        拒绝或岔开，不要调用本工具。先使用 search_songs，只传入搜索结果中的实际 ID。
+        本工具不会替你随机决定是否发送，调用后会直接尝试发送并返回实际结果。
 
         Args:
             song_id(string): 网易云歌曲 ID,必须来自 search_songs 的结果
