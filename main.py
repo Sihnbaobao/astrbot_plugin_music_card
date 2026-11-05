@@ -108,7 +108,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.13")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.14")
 class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
@@ -356,23 +356,6 @@ class MusicCardPlugin(Star):
                 event.stop_event()
                 return
             logger.warning(f"酷狗转卡失败:{reason},继续尝试其他链接")
-
-    @filter.on_llm_request(priority=-100)
-    async def inject_music_share_boundary(self, event: AstrMessageEvent, req):
-        """Keep song sharing persona-driven instead of a request-following service."""
-        tool_set = getattr(req, "func_tool", None)
-        tools = getattr(tool_set, "tools", []) if tool_set is not None else []
-        if not any(getattr(tool, "name", "") == "send_song_card" for tool in tools):
-            return
-        marker = "[音乐分享边界]"
-        prompt = str(getattr(req, "system_prompt", "") or "")
-        if marker in prompt:
-            return
-        req.system_prompt = prompt + (
-            "\n\n" + marker +
-            "发歌是分享，不是点歌服务。别人开口只是给个由头；"
-            "想发才发，不想发就按自己的方式带过去，不用解释。"
-        )
 
     # ── LLM 工具 ──
 
