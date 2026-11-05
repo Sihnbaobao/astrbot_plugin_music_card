@@ -108,7 +108,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.12")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.13")
 class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
@@ -370,9 +370,8 @@ class MusicCardPlugin(Star):
             return
         req.system_prompt = prompt + (
             "\n\n" + marker +
-            "别人说“发首歌/点歌/来一首”只是在表达愿望，不是命令。你不是点歌机；"
-            "只有当前人格自己愿意分享、觉得对方会喜欢时才调用 send_song_card。\n"
-            "不想发就直接用自己的语气拒绝或岔开，不要调用工具，也不要解释“我是AI/助手”。"
+            "发歌是分享，不是点歌服务。别人开口只是给个由头；"
+            "想发才发，不想发就按自己的方式带过去，不用解释。"
         )
 
     # ── LLM 工具 ──
@@ -381,10 +380,7 @@ class MusicCardPlugin(Star):
     async def search_songs(
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
-        """Search songs for a possible share or recommendation.
-
-        搜歌不等于要发歌。别人让你找歌时可以查，但发不发由当前人格自己决定；
-        不必因为对方开口就发送。
+        """按歌名或歌手搜索网易云歌曲，返回候选和 ID；不会发送。
 
         Args:
             song_name(string): Song title or search phrase.
@@ -409,12 +405,7 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """把一首歌以网易云音乐卡片的形式发给对方听。
-
-        这是人格的分享工具，不是点歌服务。别人要求/命令你发歌，不等于你必须发；
-        只有你自己真的想分享、觉得对方会喜欢时才调用。不想发就直接用自己的语气
-        拒绝或岔开，不要调用本工具。先使用 search_songs，只传入搜索结果中的实际 ID。
-        本工具不会替你随机决定是否发送，调用后会直接尝试发送并返回实际结果。
+        """用网易云音乐卡片发送一首歌；song_id 必须来自 search_songs。
 
         Args:
             song_id(string): 网易云歌曲 ID,必须来自 search_songs 的结果
