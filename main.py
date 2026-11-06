@@ -12,6 +12,7 @@ from .kugou import parse_kugou_card
 from .netease import (
     get_netease_song,
     search_netease,
+    search_netease_artist_songs,
     search_netease_candidates,
 )
 from .qqcard import parse_qq_card
@@ -24,6 +25,7 @@ MUSIC_DOMAINS = (
 )
 _EVENT_STATE_KEY = "astrbot_plugin_music_card.state"
 _URL_TRAILING_CHARS = ".,!?;:)]}，。！？；：）》”’"
+_SEARCH_RESULT_LIMIT = 5
 
 
 def _clean_url(url):
@@ -112,7 +114,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.16")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.4.1")
 class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
@@ -386,10 +388,11 @@ class MusicCardPlugin(Star):
     ):
         """按歌名或歌手搜索网易云歌曲，只返回标题/歌手匹配的候选和 ID；不会发送。
 
-        推荐或查找歌曲前先用它确认；没有返回的歌不要提。
+        song_name 填歌名或歌手名都行；歌名匹配不到时会自动按歌手搜，返回该歌手的热门歌曲。
+        最多返回 5 条候选。推荐或查找歌曲前先用它确认；没有返回的歌不要提。
 
         Args:
-            song_name(string): Song title or search phrase.
+            song_name(string): Song title, or the artist name when only the artist is known.
             artist(string): Optional artist name.
 
         Returns:
@@ -399,14 +402,26 @@ class MusicCardPlugin(Star):
         state["search_count"] = int(state.get("search_count", 0)) + 1
         if state["search_count"] > 3:
             return "本轮搜索次数已用完。"
-        results = await search_netease_candidates(song_name, artist, limit=3)
+        results = await search_netease_candidates(
+            song_name, artist, limit=_SEARCH_RESULT_LIMIT
+        )
+        by_artist = False
+        if not results:
+            # 模型常把歌手名填进 song_name，歌名没匹配上时按歌手再搜一次。
+            results = await search_netease_artist_songs(
+                artist or song_name, limit=_SEARCH_RESULT_LIMIT
+            )
+            by_artist = bool(results)
         if not results:
             return "没有找到匹配的歌曲。"
         lines = [
             f"歌名:{song['name']} 歌手:{song['artist']} ID:{song['id']}"
             for song in results
         ]
-        return "\n".join(lines) + "\n\n(中文歌名可能以日语显示,如'魔法'='まほう')"
+        suffix = "\n\n(中文歌名可能以日语显示,如'魔法'='まほう')"
+        if by_artist:
+            suffix = "\n\n(按歌手搜索,以上是该歌手的歌)" + suffix
+        return "\n".join(lines) + suffix
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):

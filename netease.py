@@ -133,6 +133,22 @@ def _select_best_result(results, title, singer, log_misses=True):
     return best
 
 
+def _title_prefix_match(candidate, title):
+    """Check whether a candidate title starts with the requested title.
+
+    Args:
+        candidate: Candidate song title.
+        title: Requested song title.
+
+    Returns:
+        True when the normalized candidate starts with the normalized title
+        and the title is long enough to avoid one-character false positives.
+    """
+    candidate_key = _normalize(candidate)
+    title_key = _normalize(title)
+    return len(title_key) >= 2 and candidate_key.startswith(title_key)
+
+
 async def get_netease_song(song_id):
     """按歌曲 ID 查询网易云歌曲。
 
@@ -214,6 +230,105 @@ async def search_netease(title, singer=""):
     return _select_best_result(results, title, singer)
 
 
+async def search_netease_artist(artist):
+    """按名字解析网易云歌手，兼容简繁体与别名。
+
+    Args:
+        artist: 歌手名。
+
+    Returns:
+        包含 id 和 name 的歌手字典；没找到时返回 None。
+    """
+    artist = str(artist or "").strip()
+    if not artist:
+        return None
+    try:
+        async with httpx.AsyncClient(
+            timeout=10, headers={"User-Agent": "Mozilla/5.0"}
+        ) as client:
+            response = await client.get(
+                "https://music.163.com/api/search/get/web",
+                params={
+                    "s": artist,
+                    "type": 100,
+                    "offset": 0,
+                    "limit": 5,
+                    "csrf_token": "",
+                },
+            )
+            response.raise_for_status()
+            artists = (response.json().get("result") or {}).get("artists") or []
+    except Exception as e:
+        logger.warning(f"歌手搜索失败:{e}")
+        return None
+    artist_key = _normalize(artist)
+    fallback = None
+    for item in artists:
+        if not isinstance(item, dict) or item.get("id") is None or not item.get("name"):
+            continue
+        names = [str(item.get("name"))]
+        names.extend(str(alias) for alias in item.get("alias") or [])
+        entry = {"id": str(item["id"]), "name": str(item["name"])}
+        if any(_normalize(name) == artist_key for name in names):
+            return entry
+        if fallback is None:
+            fallback = entry
+    return fallback
+
+
+async def search_netease_artist_songs(artist, limit=3):
+    """按歌手返回网易云热门歌曲。
+
+    Args:
+        artist: 歌手名。
+        limit: 返回歌曲数量，限制在 1 到 10。
+
+    Returns:
+        歌曲列表；找不到歌手或接口失败时返回空列表。
+    """
+    info = await search_netease_artist(artist)
+    if not info:
+        return []
+    try:
+        async with httpx.AsyncClient(
+            timeout=10, headers={"User-Agent": "Mozilla/5.0"}
+        ) as client:
+            response = await client.get(
+                "https://music.163.com/api/artist/top/song",
+                params={"id": info["id"]},
+            )
+            response.raise_for_status()
+            songs = response.json().get("songs") or []
+    except Exception as e:
+        logger.warning(f"歌手歌曲获取失败:{e}")
+        return []
+    limit = max(1, min(int(limit or 3), 10))
+    results = []
+    for song in songs:
+        if not isinstance(song, dict):
+            continue
+        song_id = song.get("id")
+        name = song.get("name")
+        if song_id is None or not name:
+            continue
+        artist_names = [
+            str(item.get("name", "")).strip()
+            for item in song.get("ar") or song.get("artists") or []
+            if isinstance(item, dict) and item.get("name")
+        ]
+        results.append(
+            {
+                "id": str(song_id),
+                "name": name,
+                "artist": " / ".join(artist_names),
+                "artists": artist_names,
+            }
+        )
+        if len(results) >= limit:
+            break
+    return results
+
+
 async def search_netease_candidates(title, singer="", limit=3):
     """Return only candidates whose title and singer actually match.
 
@@ -229,6 +344,11 @@ async def search_netease_candidates(title, singer="", limit=3):
     singer = str(singer or "").strip()
     if not title:
         return []
+    # 歌手名先解析成网易云的规范写法，避免“花谱 / 花譜”这类简繁差异导致歌手匹配失败。
+    if singer:
+        artist_info = await search_netease_artist(singer)
+        if artist_info:
+            singer = artist_info["name"]
     results = await search_netease_multi(
         f"{title} {singer}".strip(), limit=max(5, min(int(limit or 3) * 3, 20))
     )
@@ -236,10 +356,15 @@ async def search_netease_candidates(title, singer="", limit=3):
     for result in results:
         if not isinstance(result, dict):
             continue
-        if _select_best_result([result], title, singer, log_misses=False):
-            verified.append(result)
-            if len(verified) >= max(1, min(int(limit or 3), 10)):
-                break
+        matched = _select_best_result([result], title, singer, log_misses=False)
+        if not matched and _title_prefix_match(result.get("name"), title):
+            # 允许“标题前缀”命中，兼容 cover、Live 等版本后缀。
+            matched = not singer or _artist_similarity(result, singer) >= 0.6
+        if not matched:
+            continue
+        verified.append(result)
+        if len(verified) >= max(1, min(int(limit or 3), 10)):
+            break
     if not verified:
         logger.info(f"网易云没有匹配结果:{title} - {singer}")
     return verified
