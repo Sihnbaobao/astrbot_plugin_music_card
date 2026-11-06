@@ -9,7 +9,7 @@
 1. **更新版本号**：`metadata.yaml` 里的 `version` 递增（patch/fix 加一位小数位，如 `1.1.0` -> `1.1.1`；新功能升 `1.2.0`）。
 2. **更新 `changelog.md`**：在文件顶部新增该版本的条目，用 `## vX.X.X` 格式，中文描述改动。
 3. **同步 `README.md`**：在"更新日志"一节顶部加上对应版本条目，格式为 `- **X.X.X** 改动描述`。
-4. **同步插件源版本号**：修改 `D:\GithubProjects\astrbot-plugin-source\plugins.json` 中本插件记录的 `version` 为 `metadata.yaml` 的新版本号，并在该仓库单独 commit 后推送（`https://github.com/Sihnbaobao/astrbot-plugin-source`）。
+4. **同步插件源版本号**：修改 `/home/ubuntu/astrbot-plugin-source/plugins.json` 中本插件记录的 `version` 为 `metadata.yaml` 的新版本号，并在该仓库单独 commit 后推送（`https://github.com/Sihnbaobao/astrbot-plugin-source`）。
 5. **同步代码内版本号**：`main.py` 中 `@register(...)` 的版本号与 `metadata.yaml` 一致。
 
 以上缺一不可，改完要一起 commit（插件源仓库单独 commit 并推送）。
@@ -33,8 +33,10 @@
 1. 递增 `metadata.yaml` 版本号。
 2. 更新 `changelog.md`。
 3. 更新 `README.md`。
-4. 同步插件源版本号（`astrbot-plugin-source\plugins.json`）并推送插件源仓库。
+4. 同步插件源版本号（`/home/ubuntu/astrbot-plugin-source/plugins.json`）并推送插件源仓库。
 5. 全部一起 commit 并 push。
+
+插件运行目录 `/home/ubuntu/astrbot/data/plugins/astrbot_plugin_music_card` 不是 git 仓库，发布时先克隆插件仓库（如 `/tmp/music_card_repo`），把改过的文件同步进去（不要带 `data/`、`__pycache__`），commit 后 `git push origin main`。服务器已配置 GitHub SSH，可直接推送。
 
 ## 注意事项
 
