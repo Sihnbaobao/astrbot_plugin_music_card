@@ -210,6 +210,35 @@ async def search_netease(title, singer=""):
     return _select_best_result(results, title, singer)
 
 
+async def search_netease_candidates(title, singer="", limit=3):
+    """Return only candidates whose title and singer actually match.
+
+    Args:
+        title: Requested song title or search phrase.
+        singer: Optional requested singer name.
+        limit: Maximum number of candidates.
+
+    Returns:
+        Verified candidate songs; empty when nothing credible matches.
+    """
+    title = str(title or "").strip()
+    singer = str(singer or "").strip()
+    if not title:
+        return []
+    results = await search_netease_multi(
+        f"{title} {singer}".strip(), limit=max(5, min(int(limit or 3) * 3, 20))
+    )
+    verified = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        if _select_best_result([result], title, singer):
+            verified.append(result)
+            if len(verified) >= max(1, min(int(limit or 3), 10)):
+                break
+    return verified
+
+
 async def search_netease_multi(query, limit=5):
     """搜索多首歌曲。
 

@@ -9,7 +9,11 @@ from astrbot.api.star import Star, register
 from astrbot.core import logger
 
 from .kugou import parse_kugou_card
-from .netease import get_netease_song, search_netease, search_netease_multi
+from .netease import (
+    get_netease_song,
+    search_netease,
+    search_netease_candidates,
+)
 from .qqcard import parse_qq_card
 
 MUSIC_DOMAINS = (
@@ -108,10 +112,27 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.14")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.3.15")
 class MusicCardPlugin(Star):
     def __init__(self, context, config=None):
         super().__init__(context)
+
+    @filter.on_llm_request()
+    async def on_llm_request(self, event, req):
+        """Nudge recommendation requests to verify song names first.
+
+        Args:
+            event: Current AstrBot message event.
+            req: Provider request being built.
+        """
+        text = str(getattr(event, "message_str", "") or "")
+        if not re.search(r"(推荐|歌单|好听的歌|听什么歌|有什么歌|找.*歌|想听)", text):
+            return
+        hint = (
+            "\n\n[音乐] 提到推荐或找歌时，先用 search_songs 确认真实歌曲；"
+            "只提搜索结果里出现的歌，没搜到就说没找到，不要凭印象补一个不存在的歌名。"
+        )
+        req.system_prompt = str(getattr(req, "system_prompt", "") or "") + hint
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
@@ -363,23 +384,24 @@ class MusicCardPlugin(Star):
     async def search_songs(
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
-        """按歌名或歌手搜索网易云歌曲，返回候选和 ID；不会发送。
+        """按歌名或歌手搜索网易云歌曲，只返回标题/歌手匹配的候选和 ID；不会发送。
+
+        推荐或查找歌曲前先用它确认；没有返回的歌不要提。
 
         Args:
             song_name(string): Song title or search phrase.
             artist(string): Optional artist name.
 
         Returns:
-            Candidate songs with titles, artists, and IDs. The tool never sends.
+            Verified candidates with titles, artists, and IDs. The tool never sends.
         """
         state = self._event_state(event)
         state["search_count"] = int(state.get("search_count", 0)) + 1
         if state["search_count"] > 3:
-            return "...好麻烦...璃月不想搜了"
-        q = f"{song_name} {artist}".strip()
-        results = await search_netease_multi(q, limit=3)
+            return "本轮搜索次数已用完。"
+        results = await search_netease_candidates(song_name, artist, limit=3)
         if not results:
-            return "...没找到"
+            return "没有找到匹配的歌曲。"
         lines = [
             f"歌名:{song['name']} 歌手:{song['artist']} ID:{song['id']}"
             for song in results
