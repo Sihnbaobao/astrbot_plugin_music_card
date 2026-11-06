@@ -81,13 +81,14 @@ def _artist_similarity(result, singer):
     return min(scores, default=0.0)
 
 
-def _select_best_result(results, title, singer):
+def _select_best_result(results, title, singer, log_misses=True):
     """Select a result only when its title and singer are credible.
 
     Args:
         results: Candidate search results.
         title: Requested song title.
         singer: Requested singer name.
+        log_misses: Whether to log each rejected candidate.
 
     Returns:
         Best matching result, or None when matching confidence is too low.
@@ -106,7 +107,8 @@ def _select_best_result(results, title, singer):
     if not singer:
         if exact_title:
             return exact_title[0]
-        logger.info(f"网易云未找到标题完全匹配结果:{title}")
+        if log_misses:
+            logger.info(f"网易云未找到标题完全匹配结果:{title}")
         return None
 
     best = None
@@ -121,10 +123,12 @@ def _select_best_result(results, title, singer):
             best_score = score
             best_artist_score = artist_score
     if best_artist_score < 0.6:
-        logger.info(f"未找到歌手匹配的网易云结果:{title} - {singer}")
+        if log_misses:
+            logger.info(f"未找到歌手匹配的网易云结果:{title} - {singer}")
         return None
     if best_score < 0.8:
-        logger.info(f"网易云搜索匹配度不足:{title} - {singer}")
+        if log_misses:
+            logger.info(f"网易云搜索匹配度不足:{title} - {singer}")
         return None
     return best
 
@@ -232,10 +236,12 @@ async def search_netease_candidates(title, singer="", limit=3):
     for result in results:
         if not isinstance(result, dict):
             continue
-        if _select_best_result([result], title, singer):
+        if _select_best_result([result], title, singer, log_misses=False):
             verified.append(result)
             if len(verified) >= max(1, min(int(limit or 3), 10)):
                 break
+    if not verified:
+        logger.info(f"网易云没有匹配结果:{title} - {singer}")
     return verified
 
 
