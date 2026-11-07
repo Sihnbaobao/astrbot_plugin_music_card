@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.14.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -174,13 +174,13 @@ class MusicCardPlugin(Star):
         hints = []
         if re.search(r"(推荐|歌单|好听的歌|听什么歌|有什么歌|找.*歌|想听)", text):
             hints.append(
-                "提到推荐或找歌时，先用 search_songs 确认真实歌曲；"
-                "只提搜索结果里出现的歌，没搜到就说没找到，不要凭印象补一个不存在的歌名。"
+                "聊到推荐或找歌时，先 search_songs 确认一下；"
+                "只提真的搜到的歌，没搜到就说没找到，别凭印象编歌名。"
             )
         if re.search(r"(听歌|听会儿歌|去听|听听歌|放首歌|听一首)", text):
             hints.append(
-                "对方让你去听歌、或你自己想听时，调用 listen_music；"
-                "query 留空就按你的喜好挑，它会真的去网易云听并返回听后感。"
+                "想听歌的时候，直接 listen_music 去听；"
+                "留空就按自己的喜好挑，听完会有听后感。"
             )
         if not hints:
             return
@@ -803,17 +803,17 @@ class MusicCardPlugin(Star):
     async def search_songs(
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
-        """按歌名或歌手搜索网易云歌曲，只返回标题/歌手匹配的候选和 ID；不会发送。
+        """想找歌、确认歌名或歌手时，用这个查一下。
 
-        song_name 填歌名或歌手名都行；歌名匹配不到时会自动按歌手搜，返回该歌手的热门歌曲。
-        最多返回 5 条候选。推荐或查找歌曲前先用它确认；没有返回的歌不要提。
+        歌名、歌手都行；歌名对不上会按歌手搜，最多给 5 首。
+        只提真的搜到的歌；没搜到就说没找到，别凭印象编。
 
         Args:
-            song_name(string): Song title, or the artist name when only the artist is known.
-            artist(string): Optional artist name.
+            song_name(string): 歌名，或者只知道歌手时填歌手名。
+            artist(string): 歌手名，可留空。
 
         Returns:
-            Verified candidates with titles, artists, and IDs. The tool never sends.
+            候选歌名、歌手和 ID；没有就直说没找到。
         """
         state = self._event_state(event)
         state["search_count"] = int(state.get("search_count", 0)) + 1
@@ -842,15 +842,13 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="send_song_card")
     async def send_song_card(self, event: AstrMessageEvent, song_id: str):
-        """用网易云音乐卡片发送一首歌；song_id 必须来自 search_songs。
+        """把一首歌做成网易云卡片发到聊天里。
 
         Args:
-            song_id(string): 网易云歌曲 ID,必须来自 search_songs 的结果
+            song_id(string): 从 search_songs 拿到的歌曲 ID。
 
         Returns:
-            "已发送" on success, or a failure explanation when no card was sent.
-
-        若歌曲不存在或平台发不出卡片,本工具会返回失败说明,不会谎报"已发送"。
+            发出去了就说一声；发不出去就照实说。
         """
         state = self._event_state(event)
         if state.get("card_sent"):
@@ -872,15 +870,15 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="listen_song")
     async def listen_song(self, event: AstrMessageEvent, song_id: str):
-        """听一首歌：返回歌词、翻译和热评，帮你理解这首歌；不会发送消息。
+        """戴上耳机听一首：看看歌词、翻译和热评，先感受一下。
 
-        song_id 必须来自 search_songs 的结果。听完再决定要不要去评论区留言。
+        不会在聊天里说话；听完再决定要不要去评论区留一句。
 
         Args:
-            song_id(string): 网易云歌曲 ID，必须来自 search_songs。
+            song_id(string): 网易云歌曲 ID，从 search_songs 来。
 
         Returns:
-            歌名、歌手、歌词节选和热评；没找到时说明原因。
+            歌名、歌手、歌词节选和热评；没找到就直说。
         """
         song_id = str(song_id or "").strip()
         if not song_id.isdigit():
@@ -918,17 +916,17 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="listen_music")
     async def listen_music(self, event: AstrMessageEvent, query: str = ""):
-        """真的去网易云听一首歌，返回听后感；比 listen_song 更完整。
+        """真的去听一首歌：挑歌、看歌词和热评、写下听后感。
 
-        你自己突然想听歌时可以直接调用。
-        query 留空按人格喜好自己挑；填歌名/歌手就听指定的。
-        听完会把听后感返回给你，你可以直接用它回复对方。
+        你自己突然想听的时候就可以去听。
+        query 留空就按自己的喜好挑；填歌名或歌手就听指定的。
+        听完会有听后感，你可以拿它跟对方聊。
 
         Args:
-            query(string): 歌名或歌手；留空则按人格喜好挑。
+            query(string): 歌名或歌手；留空就按自己的喜好挑。
 
         Returns:
-            听后感；失败时说明原因。
+            听了什么、听后感；没听成就直说。
         """
         query = str(query or "").strip()
         raw_categories = str(self._cfg("PLAYLIST_CATEGORIES", "深夜,通勤,元气,emo"))
@@ -967,16 +965,16 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="comment_song")
     async def comment_song(self, event: AstrMessageEvent, song_id: str, content: str):
-        """在网易云歌曲评论区留一条评论；不会发送聊天消息。
+        """在网易云评论区留一句话。
 
-        必须先听过这首歌（listen_song），每天有次数上限，内容要短、符合你的人格。
+        先听过这首歌再去；每天有次数上限，话短一点，像你自己会说的。
 
         Args:
             song_id(string): 网易云歌曲 ID。
-            content(string): 评论内容，2-50 字。
+            content(string): 想留的话，2-50 字。
 
         Returns:
-            "已评论" 或失败原因。
+            发出去了就说一声；发不出去就照实说。
         """
         song_id = str(song_id or "").strip()
         content = str(content or "").strip()
@@ -1016,13 +1014,13 @@ class MusicCardPlugin(Star):
 
     @filter.llm_tool(name="like_song")
     async def like_song_tool(self, event: AstrMessageEvent, song_id: str):
-        """收藏一首歌到网易云「我喜欢的音乐」；不会发送聊天消息。
+        """把一首歌收进「我喜欢的音乐」。
 
         Args:
             song_id(string): 网易云歌曲 ID。
 
         Returns:
-            "已收藏" 或失败原因。
+            收好了就说一声；没成就照实说。
         """
         cookie = self.store.cookie
         if not cookie:
@@ -1034,14 +1032,14 @@ class MusicCardPlugin(Star):
     async def save_to_playlist_tool(
         self, event: AstrMessageEvent, song_id: str, category: str = ""
     ):
-        """把一首歌加入歌单，歌单不存在会自动创建；不会发送聊天消息。
+        """把一首歌放进歌单；没有这个歌单就建一个。
 
         Args:
             song_id(string): 网易云歌曲 ID。
-            category(string): 歌单分类，比如 深夜、通勤；留空归到「收藏」。
+            category(string): 分类，比如 深夜、通勤；留空就归到「收藏」。
 
         Returns:
-            "已加入歌单「...」" 或失败原因。
+            放进去了就说一声；没成就照实说。
         """
         cookie = self.store.cookie
         auth = self.store.load_auth()
