@@ -35,37 +35,19 @@
             <strong id="accountName">—</strong>
             <span id="accountUid"></span>
           </div>
+          <button class="btn ghost" id="switchBtn" type="button">换号</button>
           <button class="btn ghost" id="logoutBtn" type="button">退出</button>
         </div>
-        <div class="login-row">
-          <button class="btn" id="loginBtn" type="button">扫码登录</button>
-          <span class="hint" id="qrState"></span>
-        </div>
-        <div class="qr-box" id="qrBox" hidden>
-          <img id="qrImage" alt="登录二维码" />
-          <a id="qrLink" target="_blank" rel="noopener">图片没出来？点这里打开登录页</a>
-        </div>
-        <details class="manual">
-          <summary>扫码不行？手动填 Cookie</summary>
+        <div class="login-box" id="loginBox">
           <p class="hint">
             浏览器登录 music.163.com → F12 → Application → Cookies → 复制
             <code>MUSIC_U</code> 和 <code>__csrf</code>，拼成
             <code>MUSIC_U=...; __csrf=...</code> 粘进来。
           </p>
+          <p class="hint">服务器 IP 会被网易云风控，扫码和密码登录不可用，只能用 Cookie。</p>
           <textarea id="cookieInput" rows="3" placeholder="MUSIC_U=...; __csrf=..."></textarea>
-          <button class="btn ghost" id="cookieBtn" type="button">用 Cookie 登录</button>
-        </details>
-        <details class="manual">
-          <summary>账号密码登录</summary>
-          <p class="hint">
-            手机号或邮箱 + 密码。密码只用于这一次登录、不会保存；网易云风控严格时可能仍然失败。
-          </p>
-          <div class="pw-row">
-            <input id="accountInput" type="text" autocomplete="off" placeholder="手机号或邮箱" />
-            <input id="passwordInput" type="password" autocomplete="off" placeholder="密码" />
-            <button class="btn ghost" id="passwordBtn" type="button">登录</button>
-          </div>
-        </details>
+          <button class="btn" id="cookieBtn" type="button">用 Cookie 登录</button>
+        </div>
       </section>
 
       <section class="card">

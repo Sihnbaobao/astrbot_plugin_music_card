@@ -109,30 +109,13 @@ body {
 .avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--bg); }
 .account-text { display: flex; flex-direction: column; line-height: 1.3; }
 .account-text span { color: var(--muted); font-size: 12px; }
-.account .btn { margin-left: auto; }
+.account .btn:first-of-type { margin-left: auto; }
 
-.login-row { display: flex; align-items: center; gap: 12px; }
-.qr-box { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.qr-box img { width: 180px; height: 180px; border-radius: 8px; background: #fff; padding: 6px; }
-.qr-box a { color: var(--accent); font-size: 12px; }
-
-.manual { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
-.manual summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-.manual p { margin: 8px 0; }
-.manual code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-.pw-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.pw-row input {
-  flex: 1 1 160px;
-  min-width: 140px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--text);
-}
-.manual textarea {
+.login-box p { margin: 0 0 8px; }
+.login-box code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.login-box textarea {
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
