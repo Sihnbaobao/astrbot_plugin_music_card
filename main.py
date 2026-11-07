@@ -1,21 +1,33 @@
 import re
+import time
+from datetime import datetime
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from astrbot.api import AstrBotConfig
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Music
-from astrbot.api.star import Star, register
+from astrbot.api.star import Context, Star, register
 from astrbot.core import logger
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .kugou import parse_kugou_card
+from .listener import listen
+from .login import NeteaseLogin
 from .netease import (
+    get_netease_account,
     get_netease_song,
+    get_song_comments,
+    get_song_lyrics,
+    post_song_comment,
     search_netease,
     search_netease_artist_songs,
     search_netease_candidates,
 )
 from .qqcard import parse_qq_card
+from .store import MusicStore
 
 MUSIC_DOMAINS = (
     "music.163.com",
@@ -114,10 +126,21 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.4.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.0")
 class MusicCardPlugin(Star):
-    def __init__(self, context, config=None):
+    def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
+        self.config = config
+        self.data_dir = (
+            Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_music_card"
+        )
+        self.store = MusicStore(self.data_dir)
+        self.login = NeteaseLogin()
+        self._qr = {}
+        self._qr_at = 0.0
+        self._account = {}
+        self._account_at = 0.0
+        self._register_web_apis()
 
     @filter.on_llm_request()
     async def on_llm_request(self, event, req):
@@ -150,6 +173,165 @@ class MusicCardPlugin(Star):
             state = {"card_sent": False, "card_in_flight": False, "search_count": 0}
             event.set_extra(_EVENT_STATE_KEY, state)
         return state
+
+    # ── 配置与插件页 ──
+
+    def _cfg(self, key, default=None):
+        """读取插件配置，空值回退到默认值。
+
+        Args:
+            key: 配置项名。
+            default: 缺省值。
+
+        Returns:
+            配置值或默认值。
+        """
+        try:
+            value = (self.config or {}).get(key, default)
+        except AttributeError:
+            value = default
+        if value is None or value == "":
+            return default
+        return value
+
+    def _register_web_apis(self):
+        """注册插件页用的接口。"""
+        routes = [
+            ("page/status", self._api_status, ["GET"], "听歌：状态与记录"),
+            ("page/login/qr", self._api_login_qr, ["POST"], "听歌：生成登录二维码"),
+            ("page/login/poll", self._api_login_poll, ["POST"], "听歌：查询扫码状态"),
+            ("page/listen", self._api_listen, ["POST"], "听歌：手动听一首"),
+            ("page/logout", self._api_logout, ["POST"], "听歌：退出登录"),
+        ]
+        for endpoint, handler, methods, desc in routes:
+            self.context.register_web_api(
+                f"/astrbot_plugin_music_card/{endpoint}", handler, methods, desc
+            )
+        logger.info("[music-card] 插件页接口已注册")
+
+    async def _api_status(self):
+        """插件页顶部的全部状态。"""
+        from astrbot.api.web import json_response
+
+        auth = self.store.load_auth()
+        account = self._account
+        if auth.get("cookie") and (not account or time.time() - self._account_at > 600):
+            fetched = await get_netease_account(auth["cookie"])
+            if fetched:
+                account = fetched
+                self._account = fetched
+                self._account_at = time.time()
+        if not account and auth:
+            account = {
+                "name": auth.get("name", ""),
+                "avatar": auth.get("avatar", ""),
+                "userId": auth.get("userId", ""),
+            }
+        return json_response(
+            {
+                "logged_in": bool(auth.get("cookie")),
+                "account": account,
+                "listened": self.store.recent_listened(30),
+                "comments": self.store.recent_comments(30),
+                "listened_total": len(self.store.recent_listened(500)),
+                "comments_total": len(self.store.recent_comments(500)),
+                "comments_today": self.store.comments_today(),
+                "daily_limit": int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
+                "auto_comment": bool(self._cfg("AUTO_COMMENT", False)),
+                "listen_query": str(self._cfg("LISTEN_QUERY", "花谱")),
+                "persona_id": str(self._cfg("PERSONA_ID", "")),
+            }
+        )
+
+    async def _api_login_qr(self):
+        """生成登录二维码。"""
+        from astrbot.api.web import error_response, json_response
+
+        try:
+            data = await self.login.generate()
+        except Exception as exc:
+            return error_response(str(exc))
+        self._qr = data
+        self._qr_at = time.time()
+        return json_response(
+            {"key": data["key"], "image": data["image"], "url": data["url"]}
+        )
+
+    async def _api_login_poll(self):
+        """查询一次扫码状态，成功后保存登录态。"""
+        from astrbot.api.web import error_response, json_response, request
+
+        try:
+            payload = await request.json(default={})
+        except Exception:
+            payload = {}
+        key = str((payload or {}).get("key") or self._qr.get("key") or "")
+        if not key:
+            return error_response("没有正在进行的登录，请先点扫码登录")
+        if self._qr_at and time.time() - self._qr_at > 300:
+            return json_response(
+                {"state": "expired", "message": "二维码过期了，请重新生成"}
+            )
+        try:
+            result = await self.login.poll(key)
+        except Exception as exc:
+            return error_response(str(exc))
+        if result["state"] == "confirmed":
+            cookie = result.get("cookie") or ""
+            account = await get_netease_account(cookie)
+            self.store.save_auth(
+                {
+                    "cookie": cookie,
+                    "name": account.get("name", ""),
+                    "avatar": account.get("avatar", ""),
+                    "userId": account.get("userId", ""),
+                    "at": time.time(),
+                }
+            )
+            self._account = account
+            self._account_at = time.time()
+            return json_response(
+                {"state": "confirmed", "message": "登录成功", "account": account}
+            )
+        return json_response({"state": result["state"], "message": result["message"]})
+
+    async def _api_listen(self):
+        """手动听一首歌。"""
+        from astrbot.api.web import error_response, json_response, request
+
+        try:
+            payload = await request.json(default={})
+        except Exception:
+            payload = {}
+        query = str((payload or {}).get("query") or self._cfg("LISTEN_QUERY", "花谱"))
+        song_id = str((payload or {}).get("song_id") or "")
+        auto = bool(
+            (payload or {}).get("auto_comment", self._cfg("AUTO_COMMENT", False))
+        )
+        try:
+            entry = await listen(
+                self.context,
+                self.store,
+                query=query,
+                song_id=song_id,
+                persona_id=str(self._cfg("PERSONA_ID", "")),
+                provider_id=str(self._cfg("PROVIDER_ID", "")),
+                auto_comment=auto,
+                daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
+            )
+        except Exception as exc:
+            logger.warning(f"[music-card] 听歌失败：{exc}")
+            return error_response(str(exc))
+        return json_response({"entry": entry})
+
+    async def _api_logout(self):
+        """退出登录。"""
+        from astrbot.api.web import json_response
+
+        self.store.clear_auth()
+        self._account = {}
+        self._account_at = 0.0
+        return json_response({"ok": True})
 
     # ── 消息发送 ──
 
@@ -450,3 +632,97 @@ class MusicCardPlugin(Star):
             state["card_sent"] = True
             return "已发送"
         return f"发送失败:{reason}"
+
+    # ── 听歌与评论 ──
+
+    @filter.llm_tool(name="listen_song")
+    async def listen_song(self, event: AstrMessageEvent, song_id: str):
+        """听一首歌：返回歌词、翻译和热评，帮你理解这首歌；不会发送消息。
+
+        song_id 必须来自 search_songs 的结果。听完再决定要不要去评论区留言。
+
+        Args:
+            song_id(string): 网易云歌曲 ID，必须来自 search_songs。
+
+        Returns:
+            歌名、歌手、歌词节选和热评；没找到时说明原因。
+        """
+        song_id = str(song_id or "").strip()
+        if not song_id.isdigit():
+            return "歌曲 ID 无效。"
+        song = await get_netease_song(song_id)
+        if not song:
+            return "没有找到这首歌。"
+        lyrics = await get_song_lyrics(song_id)
+        comments = await get_song_comments(song_id, 6)
+        self.store.add_listened(
+            {
+                "at": datetime.now().isoformat(timespec="seconds"),
+                "song_id": song["id"],
+                "name": song["name"],
+                "artist": song["artist"],
+                "reaction": "",
+                "commented": False,
+                "source": "chat",
+            }
+        )
+        lines = [f"歌名:{song['name']} 歌手:{song['artist']}"]
+        if lyrics.get("lyric"):
+            lines.append("歌词(节选):\n" + lyrics["lyric"][:600])
+        if lyrics.get("translation"):
+            lines.append("翻译(节选):\n" + lyrics["translation"][:400])
+        if comments:
+            lines.append("热评:")
+            for item in comments[:4]:
+                lines.append(
+                    f"- {item['user']}({item['liked']}赞): {item['content'][:60]}"
+                )
+        if not lyrics.get("lyric") and not comments:
+            lines.append("(没拿到歌词或评论)")
+        return "\n".join(lines)
+
+    @filter.llm_tool(name="comment_song")
+    async def comment_song(self, event: AstrMessageEvent, song_id: str, content: str):
+        """在网易云歌曲评论区留一条评论；不会发送聊天消息。
+
+        必须先听过这首歌（listen_song），每天有次数上限，内容要短、符合你的人格。
+
+        Args:
+            song_id(string): 网易云歌曲 ID。
+            content(string): 评论内容，2-50 字。
+
+        Returns:
+            "已评论" 或失败原因。
+        """
+        song_id = str(song_id or "").strip()
+        content = str(content or "").strip()
+        if not song_id.isdigit():
+            return "歌曲 ID 无效。"
+        if not 2 <= len(content) <= 50:
+            return "评论内容要 2-50 字。"
+        limit = int(self._cfg("COMMENT_DAILY_LIMIT", 3))
+        if limit <= 0:
+            return "现在不允许发评论。"
+        if self.store.comments_today() >= limit:
+            return "今天的评论次数用完了。"
+        listened = any(
+            str(item.get("song_id")) == song_id
+            for item in self.store.recent_listened(200)
+        )
+        if not listened:
+            return "先听一遍这首歌再评论。"
+        cookie = self.store.cookie
+        if not cookie:
+            return "还没有登录网易云，发不了评论。"
+        ok, message = await post_song_comment(song_id, content, cookie)
+        self.store.add_comment(
+            {
+                "at": datetime.now().isoformat(timespec="seconds"),
+                "song_id": song_id,
+                "name": "",
+                "content": content,
+                "ok": ok,
+                "message": message,
+            }
+        )
+        return "已评论" if ok else f"评论失败:{message}"

@@ -426,3 +426,207 @@ async def search_netease_multi(query, limit=5):
     except Exception as e:
         logger.warning(f"搜索失败:{e}")
         return []
+
+
+_LRC_TAG_RE = re.compile(r"\[[^\]]*\]")
+_MAX_LYRIC_CHARS = 1200
+_MAX_TRANSLATION_CHARS = 800
+
+
+def _strip_lrc(text):
+    """去掉 LRC 时间轴，保留歌词正文。
+
+    Args:
+        text: 原始 LRC 文本。
+
+    Returns:
+        去掉 [mm:ss.xxx] 标签后的纯文本。
+    """
+    lines = []
+    for line in str(text or "").splitlines():
+        line = _LRC_TAG_RE.sub("", line).strip()
+        if line:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _cookie_value(cookie, key):
+    """从 Cookie 字符串里取一个值。
+
+    Args:
+        cookie: 形如 "a=1; b=2" 的 Cookie。
+        key: 要取的 Cookie 名。
+
+    Returns:
+        对应的值；没有时返回空串。
+    """
+    for part in str(cookie or "").split(";"):
+        name, _, value = part.strip().partition("=")
+        if name == key:
+            return value
+    return ""
+
+
+async def get_song_lyrics(song_id):
+    """查询网易云歌词与翻译。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+
+    Returns:
+        包含 lyric 和 translation 的字典；失败时两者为空串。
+    """
+    song_id = str(song_id or "").strip()
+    if not song_id.isdigit():
+        return {"lyric": "", "translation": ""}
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"},
+        ) as client:
+            response = await client.get(
+                "https://music.163.com/api/song/lyric",
+                params={"id": song_id, "lv": 1, "kv": 1, "tv": -1},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as e:
+        logger.warning(f"歌词获取失败:{e}")
+        return {"lyric": "", "translation": ""}
+    lyric = _strip_lrc((payload.get("lrc") or {}).get("lyric") or "")
+    translation = _strip_lrc((payload.get("tlyric") or {}).get("lyric") or "")
+    return {
+        "lyric": lyric[:_MAX_LYRIC_CHARS],
+        "translation": translation[:_MAX_TRANSLATION_CHARS],
+    }
+
+
+async def get_song_comments(song_id, limit=8):
+    """查询网易云热评。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+        limit: 最多返回几条。
+
+    Returns:
+        包含 user、liked、content 的评论列表；失败时为空列表。
+    """
+    song_id = str(song_id or "").strip()
+    if not song_id.isdigit():
+        return []
+    limit = max(1, min(int(limit or 8), 20))
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"},
+        ) as client:
+            response = await client.get(
+                f"https://music.163.com/api/v1/resource/comments/R_SO_4_{song_id}",
+                params={"limit": limit, "offset": 0},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as e:
+        logger.warning(f"评论获取失败:{e}")
+        return []
+    comments = payload.get("hotComments") or payload.get("comments") or []
+    results = []
+    for item in comments[:limit]:
+        if not isinstance(item, dict):
+            continue
+        user = item.get("user") or {}
+        results.append(
+            {
+                "user": str(user.get("nickname") or "").strip(),
+                "liked": int(item.get("likedCount") or 0),
+                "content": str(item.get("content") or "").strip()[:120],
+            }
+        )
+    return results
+
+
+async def post_song_comment(song_id, content, cookie):
+    """在歌曲评论区发一条评论。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+        content: 评论内容。
+        cookie: 登录后的 Cookie（至少含 MUSIC_U 和 __csrf）。
+
+    Returns:
+        (是否成功, 说明文字)。
+    """
+    song_id = str(song_id or "").strip()
+    content = str(content or "").strip()
+    if not song_id.isdigit():
+        return False, "歌曲 ID 无效"
+    if not content:
+        return False, "评论内容为空"
+    if not cookie:
+        return False, "没有登录，先扫码登录"
+    csrf = _cookie_value(cookie, "__csrf")
+    if not csrf:
+        return False, "登录信息缺少 __csrf，请重新扫码"
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": f"https://music.163.com/song?id={song_id}",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/api/comment",
+                data={
+                    "threadId": f"R_SO_4_{song_id}",
+                    "content": content,
+                    "csrf_token": csrf,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as e:
+        logger.warning(f"评论发送失败:{e}")
+        return False, f"评论发送失败:{e}"
+    code = int(payload.get("code") or 0)
+    if code == 200:
+        return True, "已评论"
+    message = str(payload.get("message") or payload.get("msg") or f"网易云返回 {code}")
+    return False, message
+
+
+async def get_netease_account(cookie):
+    """查询当前登录的网易云账号。
+
+    Args:
+        cookie: 登录后的 Cookie。
+
+    Returns:
+        包含 name、avatar、userId 的字典；未登录或失败时为空字典。
+    """
+    if not cookie:
+        return {}
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://music.163.com/",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.get("https://music.163.com/api/nuser/account/get")
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as e:
+        logger.warning(f"账号信息获取失败:{e}")
+        return {}
+    profile = payload.get("profile") or {}
+    if not profile:
+        return {}
+    return {
+        "name": str(profile.get("nickname") or "").strip(),
+        "avatar": str(profile.get("avatarUrl") or "").strip(),
+        "userId": str(profile.get("userId") or "").strip(),
+    }

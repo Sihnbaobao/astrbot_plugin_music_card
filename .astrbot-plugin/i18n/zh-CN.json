@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "display_name": "音乐卡片"
+  },
+  "pages": {
+    "dashboard": {
+      "title": "听歌",
+      "description": "扫码登录、听歌记录与评论"
+    }
+  },
+  "views": {
+    "dashboard": {
+      "title": "听歌",
+      "description": "扫码登录、听歌记录与评论"
+    }
+  }
+}

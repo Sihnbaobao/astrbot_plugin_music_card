@@ -1,0 +1,32 @@
+{
+  "COMMENT_DAILY_LIMIT": {
+    "description": "每日评论上限",
+    "type": "int",
+    "default": 3,
+    "hint": "0 表示不允许发评论。"
+  },
+  "AUTO_COMMENT": {
+    "description": "听完自动评论",
+    "type": "bool",
+    "default": false,
+    "hint": "插件页手动听歌时，开启后它会把听后感发到评论区。"
+  },
+  "LISTEN_QUERY": {
+    "description": "手动听歌的默认搜索词",
+    "type": "string",
+    "default": "花谱",
+    "hint": "插件页点「听一首」时用它去网易云搜歌，可以填歌名或歌手名。"
+  },
+  "PERSONA_ID": {
+    "description": "听歌时用的人格",
+    "type": "string",
+    "default": "",
+    "hint": "留空则只按提示词写听后感，不加载人格。"
+  },
+  "PROVIDER_ID": {
+    "description": "听歌时用的模型",
+    "type": "string",
+    "default": "",
+    "hint": "留空使用当前聊天模型。"
+  }
+}
