@@ -247,6 +247,8 @@ async function refresh() {
     renderComments(data.comments || []);
     renderReplies(data.replies || []);
     el("autoReply").checked = !!data.auto_reply;
+    el("replyHint").textContent =
+      "每 " + (data.reply_interval || 30) + " 分钟检查一次";
     el("listenedMeta").textContent = "共 " + (data.listened_total || 0) + " 条";
     el("commentsMeta").textContent =
       "今天 " +
