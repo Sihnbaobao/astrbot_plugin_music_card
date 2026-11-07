@@ -200,6 +200,7 @@ async def choose_query(
     persona_extra="",
     provider_id="",
     recent_names=(),
+    persona_text="",
 ):
     """按人格喜好挑一个搜索词。
 
@@ -209,11 +210,12 @@ async def choose_query(
         persona_extra: 人格补充。
         provider_id: 用哪个模型。
         recent_names: 最近听过的歌名，用来避免重复。
+        persona_text: 直接指定人格正文，优先于 persona_id。
 
     Returns:
         歌名或歌手名；没有可用模型或生成失败时返回空串。
     """
-    system_prompt = persona_prompt(context, persona_id)
+    system_prompt = persona_text or persona_prompt(context, persona_id)
     if persona_extra:
         system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
     provider = provider_id or await _current_provider(context)
@@ -287,6 +289,7 @@ async def listen(
     playlist_prefix="璃月",
     categories=(),
     source="manual",
+    persona_text="",
 ):
     """听一首歌并记录，必要时去评论区留言。
 
@@ -307,6 +310,7 @@ async def listen(
         playlist_prefix: 歌单名前缀。
         categories: 可选歌单分类。
         source: 听歌来源标记，manual / shared / chat。
+        persona_text: 直接指定人格正文，优先于 persona_id。
 
     Returns:
         写入的听歌记录。
@@ -323,6 +327,7 @@ async def listen(
             persona_extra,
             provider_id,
             [str(item.get("name") or "") for item in recent_items],
+            persona_text=persona_text,
         )
     if not query and not song_id:
         query = fallback_query
@@ -332,7 +337,7 @@ async def listen(
     lyrics = await get_song_lyrics(song["id"])
     comments = await get_song_comments(song["id"], 6)
     prompt = build_prompt(song, lyrics, comments, categories)
-    system_prompt = persona_prompt(context, persona_id)
+    system_prompt = persona_text or persona_prompt(context, persona_id)
     if persona_extra:
         system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
     provider = provider_id or await _current_provider(context)

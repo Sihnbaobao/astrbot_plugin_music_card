@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.12.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.13.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -584,6 +584,7 @@ class MusicCardPlugin(Star):
                 persona_id=str(self._cfg("PERSONA_ID", "")),
                 persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
                 provider_id=str(self._cfg("PROVIDER_ID", "")),
+                persona_text=await self._session_persona_text(event),
                 source="shared",
                 auto_save=bool(self._cfg("AUTO_SAVE", False)),
                 min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
@@ -599,6 +600,23 @@ class MusicCardPlugin(Star):
             )
         except Exception as exc:
             logger.warning(f"[music-card] 听后感发送失败：{exc}")
+
+    async def _session_persona_text(self, event):
+        """Resolve the persona prompt used in the current chat session.
+
+        Args:
+            event: Current message event.
+
+        Returns:
+            Persona prompt text, or an empty string.
+        """
+        try:
+            persona = await self.context.persona_manager.get_default_persona_v3(
+                event.unified_msg_origin
+            )
+            return str((persona or {}).get("prompt") or "")
+        except Exception:
+            return ""
 
     # ── 链接处理 ──
 
@@ -926,6 +944,7 @@ class MusicCardPlugin(Star):
                 persona_id=str(self._cfg("PERSONA_ID", "")),
                 persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
                 provider_id=str(self._cfg("PROVIDER_ID", "")),
+                persona_text=await self._session_persona_text(event),
                 persona_pick=not query,
                 fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
                 source="chat",
