@@ -49,7 +49,7 @@ def _parse_reaction(text):
         text: 模型原始输出。
 
     Returns:
-        (听后感, 1-10 的分数, 分类)；不是 JSON 时分数为 0。
+        (听后感, 1-10 的分数, 分类, 是否喜欢)；不是 JSON 时分数为 0、喜欢为 False。
     """
     text = str(text or "").strip()
     start = text.find("{")
@@ -66,8 +66,10 @@ def _parse_reaction(text):
             except (TypeError, ValueError):
                 score = 0
             category = str(data.get("category") or "").strip()
-            return reaction, max(0, min(score, 10)), category
-    return _clean_reaction(text), 0, ""
+            raw_like = data.get("like")
+            liked = raw_like is True or str(raw_like).strip().lower() == "true"
+            return reaction, max(0, min(score, 10)), category, liked
+    return _clean_reaction(text), 0, "", False
 
 
 def build_prompt(song, lyrics, comments, categories=()):
@@ -102,8 +104,14 @@ def build_prompt(song, lyrics, comments, categories=()):
         f"{category_text}。"
     )
     lines.append(
-        '只输出 JSON：{"reaction": "听后感", "score": 1到10的整数, "category": "分类"}，'
-        "不要解释、不要代码块。"
+        "评分要严格按你自己的口味，不要客气：10=你会主动循环、想推荐；"
+        "8-9=很喜欢、愿意再听；5-7=一般；1-4=不喜欢。"
+        "只有 8 分以上才可能被你收藏。"
+    )
+    lines.append(
+        '只输出 JSON：{"reaction": "听后感", "score": 1到10的整数, '
+        '"category": "分类", "like": true或false}；'
+        "like 表示你听完还想再听、符合你的兴趣。不要解释、不要代码块。"
     )
     return "\n".join(lines)
 
@@ -275,7 +283,7 @@ async def listen(
     auto_comment=False,
     daily_limit=3,
     auto_save=False,
-    min_score=8,
+    min_score=9,
     playlist_prefix="璃月",
     categories=(),
 ):
@@ -334,7 +342,7 @@ async def listen(
         system_prompt=system_prompt or None,
         max_tokens=200,
     )
-    reaction, score, category = _parse_reaction(
+    reaction, score, category, liked = _parse_reaction(
         getattr(response, "completion_text", "") or ""
     )
     entry = {
@@ -345,6 +353,7 @@ async def listen(
         "reaction": reaction,
         "score": score,
         "category": category,
+        "like": liked,
         "commented": False,
         "source": "manual",
     }
@@ -369,7 +378,7 @@ async def listen(
                 )
                 entry["commented"] = result["ok"]
                 entry["comment_message"] = result["message"]
-    if auto_save and score >= min_score and store.cookie:
+    if auto_save and liked and score >= min_score and store.cookie:
         auth = store.load_auth()
         cookie = store.cookie
         liked, _ = await like_song(song["id"], cookie)

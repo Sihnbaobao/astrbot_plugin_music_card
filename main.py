@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.10.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.10.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -340,7 +340,7 @@ class MusicCardPlugin(Star):
                 auto_comment=auto,
                 daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
                 auto_save=bool(self._cfg("AUTO_SAVE", False)),
-                min_score=int(self._cfg("LIKE_MIN_SCORE", 8)),
+                min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
                 playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
                 categories=categories,
             )

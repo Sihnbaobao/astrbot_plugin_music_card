@@ -100,6 +100,7 @@ function renderListened(items) {
       const category = item.category
         ? '<span class="tag">' + escapeHtml(item.category) + "</span>"
         : "";
+      const liked = item.like ? '<span class="tag ok">喜欢</span>' : "";
       const saved = item.saved
         ? '<span class="tag ok">' + escapeHtml(item.playlist || "已进歌单") + "</span>"
         : "";
@@ -116,6 +117,7 @@ function renderListened(items) {
         comment +
         score +
         category +
+        liked +
         saved +
         "</div>" +
         reaction +
