@@ -52,6 +52,22 @@
 
       <section class="card">
         <div class="card-head">
+          <h2>听歌人格</h2>
+          <span class="hint">只影响插件页的「听一首」和评论</span>
+        </div>
+        <div class="form-row">
+          <label for="personaSelect">人格</label>
+          <select id="personaSelect"></select>
+        </div>
+        <p class="hint">
+          人格补充（可选）：发到评论区前可以在这里加口径，比如“评论时不要提私密设定，语气克制”。
+        </p>
+        <textarea id="personaExtra" rows="4" placeholder="例如：评论时保持克制，不提任何私密设定"></textarea>
+        <button class="btn" id="savePersonaBtn" type="button">保存</button>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
           <h2>听一首</h2>
           <span class="hint">听完它会写一句听后感，可选发到评论区</span>
         </div>

@@ -23,6 +23,12 @@
     "default": "",
     "hint": "留空则只按提示词写听后感，不加载人格。"
   },
+  "PERSONA_EXTRA": {
+    "description": "听歌人格补充",
+    "type": "string",
+    "default": "",
+    "hint": "追加在人格后面的额外说明，只用于插件页听歌和评论；可以写发评论时的口径限制。"
+  },
   "PROVIDER_ID": {
     "description": "听歌时用的模型",
     "type": "string",

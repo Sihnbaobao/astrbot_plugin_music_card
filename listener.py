@@ -129,6 +129,7 @@ async def listen(
     query="",
     song_id="",
     persona_id="",
+    persona_extra="",
     provider_id="",
     auto_comment=False,
     daily_limit=3,
@@ -141,6 +142,7 @@ async def listen(
         query: 搜索词。
         song_id: 直接指定歌曲 ID。
         persona_id: 用哪个人格写听后感。
+        persona_extra: 追加在人格后面的补充说明，用于评论前的口径调整。
         provider_id: 用哪个模型，空则用当前聊天模型。
         auto_comment: 听完是否自动评论。
         daily_limit: 每日评论上限。
@@ -158,6 +160,8 @@ async def listen(
     comments = await get_song_comments(song["id"], 6)
     prompt = build_prompt(song, lyrics, comments)
     system_prompt = _persona_prompt(context, persona_id)
+    if persona_extra:
+        system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
     provider = provider_id or await _current_provider(context)
     if not provider:
         raise ValueError("没有可用的聊天模型")

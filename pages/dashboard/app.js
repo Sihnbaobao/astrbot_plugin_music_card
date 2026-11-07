@@ -1,7 +1,7 @@
 /* 音乐卡片插件页。只用 DOM API 和字符串拼接，不引第三方库。 */
 
 let bridge = null;
-const state = { status: null, busy: false };
+const state = { status: null, busy: false, settingsLoaded: false };
 
 function el(id) {
   return document.getElementById(id);
@@ -145,6 +145,55 @@ function renderComments(items) {
     .join("");
 }
 
+function setPersonaForm(data) {
+  const select = el("personaSelect");
+  const personaId = data.persona_id || "";
+  if (
+    personaId &&
+    !Array.from(select.options).some(function (option) {
+      return option.value === personaId;
+    })
+  ) {
+    const option = document.createElement("option");
+    option.value = personaId;
+    option.textContent = personaId;
+    select.appendChild(option);
+  }
+  select.value = personaId;
+  el("personaExtra").value = data.persona_extra || "";
+}
+
+async function loadPersonas() {
+  try {
+    const data = await bridge.apiGet("page/personas");
+    const select = el("personaSelect");
+    select.innerHTML = '<option value="">不加载人格</option>';
+    (data.personas || []).forEach(function (item) {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.name;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    setNotice("读取人格列表失败：" + error.message, "warn");
+  }
+}
+
+async function savePersona() {
+  el("savePersonaBtn").disabled = true;
+  try {
+    await bridge.apiPost("page/settings", {
+      persona_id: el("personaSelect").value,
+      persona_extra: el("personaExtra").value.trim(),
+    });
+    setNotice("人格设置已保存", "ok");
+  } catch (error) {
+    setNotice("保存失败：" + error.message, "error");
+  } finally {
+    el("savePersonaBtn").disabled = false;
+  }
+}
+
 async function refresh() {
   try {
     const data = await bridge.apiGet("page/status");
@@ -165,6 +214,10 @@ async function refresh() {
       el("queryInput").value = data.listen_query || "";
     }
     el("autoComment").checked = !!data.auto_comment;
+    if (!state.settingsLoaded) {
+      state.settingsLoaded = true;
+      setPersonaForm(data);
+    }
     setNotice("");
   } catch (error) {
     setNotice("读取状态失败：" + error.message, "error");
@@ -236,6 +289,7 @@ async function listenOnce() {
 function bind() {
   el("refreshBtn").addEventListener("click", refresh);
   el("cookieBtn").addEventListener("click", cookieLogin);
+  el("savePersonaBtn").addEventListener("click", savePersona);
   el("logoutBtn").addEventListener("click", logout);
   el("switchBtn").addEventListener("click", function () {
     el("loginBox").hidden = false;
@@ -262,6 +316,7 @@ async function boot() {
     setNotice("页面桥接响应超时，如果下面一直是空白，刷新一次页面。", "warn");
   }
   bind();
+  await loadPersonas();
   await refresh();
 }
 

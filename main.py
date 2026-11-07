@@ -126,7 +126,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.6.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.7.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -195,6 +195,8 @@ class MusicCardPlugin(Star):
         """注册插件页用的接口。"""
         routes = [
             ("page/status", self._api_status, ["GET"], "听歌：状态与记录"),
+            ("page/personas", self._api_personas, ["GET"], "听歌：人格列表"),
+            ("page/settings", self._api_settings, ["POST"], "听歌：保存人格设置"),
             (
                 "page/login/cookie",
                 self._api_login_cookie,
@@ -241,6 +243,7 @@ class MusicCardPlugin(Star):
                 "auto_comment": bool(self._cfg("AUTO_COMMENT", False)),
                 "listen_query": str(self._cfg("LISTEN_QUERY", "花谱")),
                 "persona_id": str(self._cfg("PERSONA_ID", "")),
+                "persona_extra": str(self._cfg("PERSONA_EXTRA", "")),
             }
         )
 
@@ -297,6 +300,7 @@ class MusicCardPlugin(Star):
                 query=query,
                 song_id=song_id,
                 persona_id=str(self._cfg("PERSONA_ID", "")),
+                persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
                 provider_id=str(self._cfg("PROVIDER_ID", "")),
                 auto_comment=auto,
                 daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
@@ -305,6 +309,53 @@ class MusicCardPlugin(Star):
             logger.warning(f"[music-card] 听歌失败：{exc}")
             return error_response(str(exc))
         return json_response({"entry": entry})
+
+    async def _api_personas(self):
+        """可选的人格列表。"""
+        from astrbot.api.web import json_response
+
+        personas = []
+        manager = getattr(self.context, "persona_manager", None)
+        if manager is not None:
+            try:
+                items = await manager.get_all_personas()
+            except Exception as exc:
+                logger.warning(f"[music-card] 读取人格列表失败：{exc}")
+                items = []
+            for item in items:
+                persona_id = str(getattr(item, "persona_id", "") or "").strip()
+                if persona_id:
+                    personas.append({"id": persona_id, "name": persona_id})
+        return json_response({"personas": personas})
+
+    async def _api_settings(self):
+        """保存听歌人格设置。"""
+        from astrbot.api.web import error_response, json_response, request
+
+        try:
+            payload = await request.json(default={})
+        except Exception:
+            payload = {}
+        persona_id = str((payload or {}).get("persona_id") or "").strip()
+        persona_extra = str((payload or {}).get("persona_extra") or "").strip()
+        if len(persona_extra) > 2000:
+            return error_response("人格补充太长了，控制在 2000 字以内")
+        if self.config is None:
+            return error_response("插件配置不可用")
+        self.config["PERSONA_ID"] = persona_id
+        self.config["PERSONA_EXTRA"] = persona_extra
+        try:
+            await self.config.save_config_async()
+        except Exception as exc:
+            logger.warning(f"[music-card] 保存人格设置失败：{exc}")
+            return error_response(f"保存失败：{exc}")
+        return json_response(
+            {
+                "saved": True,
+                "persona_id": persona_id,
+                "persona_extra": persona_extra,
+            }
+        )
 
     async def _api_logout(self):
         """退出登录。"""
