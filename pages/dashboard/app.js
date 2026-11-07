@@ -194,6 +194,50 @@ async function savePersona() {
   }
 }
 
+function renderReplies(items) {
+  const list = el("repliesList");
+  if (!items || !items.length) {
+    list.innerHTML = '<li class="empty">还没有收到回复。</li>';
+    return;
+  }
+  list.innerHTML = items
+    .map(function (item) {
+      const mine = item.my_reply
+        ? '<p class="rec-note">回了：' + escapeHtml(item.my_reply) + "</p>"
+        : '<p class="rec-note">（未回复）</p>';
+      return (
+        "<li>" +
+        '<div class="rec-main"><strong>' +
+        escapeHtml(item.user || "有人") +
+        "</strong><span>" +
+        escapeHtml(item.content || "") +
+        "</span></div>" +
+        '<div class="rec-side"><span>' +
+        escapeHtml(item.name || "") +
+        " · " +
+        formatAt(item.at) +
+        "</span></div>" +
+        mine +
+        "</li>"
+      );
+    })
+    .join("");
+}
+
+async function saveReply() {
+  el("saveReplyBtn").disabled = true;
+  try {
+    await bridge.apiPost("page/settings", {
+      auto_reply: el("autoReply").checked,
+    });
+    setNotice("回复设置已保存", "ok");
+  } catch (error) {
+    setNotice("保存失败：" + error.message, "error");
+  } finally {
+    el("saveReplyBtn").disabled = false;
+  }
+}
+
 async function refresh() {
   try {
     const data = await bridge.apiGet("page/status");
@@ -201,6 +245,8 @@ async function refresh() {
     renderAccount(data);
     renderListened(data.listened || []);
     renderComments(data.comments || []);
+    renderReplies(data.replies || []);
+    el("autoReply").checked = !!data.auto_reply;
     el("listenedMeta").textContent = "共 " + (data.listened_total || 0) + " 条";
     el("commentsMeta").textContent =
       "今天 " +
@@ -290,6 +336,7 @@ function bind() {
   el("refreshBtn").addEventListener("click", refresh);
   el("cookieBtn").addEventListener("click", cookieLogin);
   el("savePersonaBtn").addEventListener("click", savePersona);
+  el("saveReplyBtn").addEventListener("click", saveReply);
   el("logoutBtn").addEventListener("click", logout);
   el("switchBtn").addEventListener("click", function () {
     el("loginBox").hidden = false;

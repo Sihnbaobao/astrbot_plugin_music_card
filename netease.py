@@ -547,6 +547,13 @@ async def get_song_comments(song_id, limit=8):
     return results
 
 
+_COMMENT_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+
+
 async def post_song_comment(song_id, content, cookie):
     """在歌曲评论区发一条评论。
 
@@ -556,19 +563,27 @@ async def post_song_comment(song_id, content, cookie):
         cookie: 登录后的 Cookie（至少含 MUSIC_U 和 __csrf）。
 
     Returns:
-        (是否成功, 说明文字)。
+        包含 ok、message、comment_id 的字典。
     """
     song_id = str(song_id or "").strip()
     content = str(content or "").strip()
     if not song_id.isdigit():
-        return False, "歌曲 ID 无效"
+        return {"ok": False, "message": "歌曲 ID 无效", "comment_id": ""}
     if not content:
-        return False, "评论内容为空"
+        return {"ok": False, "message": "评论内容为空", "comment_id": ""}
     if not cookie:
-        return False, "没有登录，先在插件页用 Cookie 登录"
+        return {
+            "ok": False,
+            "message": "没有登录，先在插件页用 Cookie 登录",
+            "comment_id": "",
+        }
     csrf = _cookie_value(cookie, "__csrf")
     if not csrf:
-        return False, "登录信息缺少 __csrf，请重新复制 Cookie"
+        return {
+            "ok": False,
+            "message": "登录信息缺少 __csrf，请重新复制 Cookie",
+            "comment_id": "",
+        }
     comment_data = {
         "threadId": f"R_SO_4_{song_id}",
         "content": content,
@@ -578,11 +593,7 @@ async def post_song_comment(song_id, content, cookie):
         async with httpx.AsyncClient(
             timeout=10,
             headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
+                "User-Agent": _COMMENT_UA,
                 "Referer": f"https://music.163.com/song?id={song_id}",
                 "Cookie": cookie,
             },
@@ -595,11 +606,126 @@ async def post_song_comment(song_id, content, cookie):
             payload = response.json()
     except Exception as e:
         logger.warning(f"评论发送失败:{e}")
-        return False, f"评论发送失败:{e}"
+        return {"ok": False, "message": f"评论发送失败:{e}", "comment_id": ""}
     code = int(payload.get("code") or 0)
     if code == 200:
-        return True, "已评论"
+        comment = payload.get("comment") or {}
+        comment_id = str(comment.get("commentId") or comment.get("id") or "")
+        return {"ok": True, "message": "已评论", "comment_id": comment_id}
     message = str(payload.get("message") or payload.get("msg") or f"网易云返回 {code}")
+    return {"ok": False, "message": message, "comment_id": ""}
+
+
+async def get_comment_replies(song_id, comment_id, cookie):
+    """获取某条评论下的回复。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+        comment_id: 父评论 ID。
+        cookie: 登录后的 Cookie。
+
+    Returns:
+        包含 reply_id、user_id、user、content、time 的列表；失败时为空列表。
+    """
+    song_id = str(song_id or "").strip()
+    comment_id = str(comment_id or "").strip()
+    if not song_id.isdigit() or not comment_id or not cookie:
+        return []
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "parentCommentId": comment_id,
+        "threadId": f"R_SO_4_{song_id}",
+        "time": -1,
+        "limit": 20,
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": f"https://music.163.com/song?id={song_id}",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/resource/comment/floor/get",
+                data=weapi(payload),
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"回复获取失败:{e}")
+        return []
+    inner = data.get("data") or {}
+    replies = inner.get("comments") or []
+    results = []
+    for item in replies:
+        if not isinstance(item, dict):
+            continue
+        user = item.get("user") or {}
+        results.append(
+            {
+                "reply_id": str(item.get("commentId") or ""),
+                "user_id": str(user.get("userId") or ""),
+                "user": str(user.get("nickname") or "").strip(),
+                "content": str(item.get("content") or "").strip()[:200],
+                "time": item.get("time"),
+            }
+        )
+    return results
+
+
+async def reply_to_comment(song_id, comment_id, content, cookie):
+    """回复某条评论。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+        comment_id: 要回复的评论 ID。
+        content: 回复内容。
+        cookie: 登录后的 Cookie。
+
+    Returns:
+        (是否成功, 说明文字)。
+    """
+    song_id = str(song_id or "").strip()
+    comment_id = str(comment_id or "").strip()
+    content = str(content or "").strip()
+    if not song_id.isdigit() or not comment_id:
+        return False, "评论 ID 无效"
+    if not content:
+        return False, "回复内容为空"
+    if not cookie:
+        return False, "没有登录"
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "threadId": f"R_SO_4_{song_id}",
+        "commentId": comment_id,
+        "content": content,
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": f"https://music.163.com/song?id={song_id}",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/resource/comments/reply",
+                data=weapi(payload),
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"回复发送失败:{e}")
+        return False, f"回复发送失败:{e}"
+    code = int(data.get("code") or 0)
+    if code == 200:
+        return True, "已回复"
+    message = str(data.get("message") or data.get("msg") or f"网易云返回 {code}")
     return False, message
 
 

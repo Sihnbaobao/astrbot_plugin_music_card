@@ -69,7 +69,7 @@ def build_prompt(song, lyrics, comments):
     return "\n".join(lines)
 
 
-def _persona_prompt(context, persona_id):
+def persona_prompt(context, persona_id):
     """取人格提示词。
 
     Args:
@@ -97,6 +97,54 @@ async def _current_provider(context):
     except Exception:
         provider = None
     return str(provider.meta().id) if provider else ""
+
+
+async def generate_reply(
+    context,
+    song_name,
+    my_comment,
+    reply_user,
+    reply_content,
+    *,
+    persona_id="",
+    persona_extra="",
+    provider_id="",
+):
+    """为一条评论回复生成回应。
+
+    Args:
+        context: AstrBot Context。
+        song_name: 歌曲名。
+        my_comment: 自己之前发的评论。
+        reply_user: 回复者昵称。
+        reply_content: 回复内容。
+        persona_id: 用哪个人格。
+        persona_extra: 人格补充。
+        provider_id: 用哪个模型。
+
+    Returns:
+        回复文本；没有可用模型时返回空串。
+    """
+    system_prompt = persona_prompt(context, persona_id)
+    if persona_extra:
+        system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
+    provider = provider_id or await _current_provider(context)
+    if not provider:
+        return ""
+    prompt = (
+        "有人在网易云评论区回复了你的评论。\n"
+        f"歌曲：{song_name}\n"
+        f"你的评论：{my_comment}\n"
+        f"对方（{reply_user}）：{reply_content}\n\n"
+        "用你的人格写一句简短回复，5-50 字，只写回复本身，不要解释设定、不要列点。"
+    )
+    response = await context.llm_generate(
+        chat_provider_id=provider,
+        prompt=prompt,
+        system_prompt=system_prompt or None,
+        max_tokens=120,
+    )
+    return _clean_reaction(getattr(response, "completion_text", "") or "")
 
 
 async def resolve_song(query="", song_id="", *, randomize=False, exclude_ids=()):
@@ -169,7 +217,7 @@ async def listen(
     lyrics = await get_song_lyrics(song["id"])
     comments = await get_song_comments(song["id"], 6)
     prompt = build_prompt(song, lyrics, comments)
-    system_prompt = _persona_prompt(context, persona_id)
+    system_prompt = persona_prompt(context, persona_id)
     if persona_extra:
         system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
     provider = provider_id or await _current_provider(context)
@@ -192,21 +240,25 @@ async def listen(
         "source": "manual",
     }
     if auto_comment and daily_limit > 0 and store.comments_today() < daily_limit:
-        content = reaction[:50]
-        cookie = store.cookie
-        if cookie and len(content) >= 2:
-            ok, message = await post_song_comment(song["id"], content, cookie)
-            store.add_comment(
-                {
-                    "at": entry["at"],
-                    "song_id": song["id"],
-                    "name": song["name"],
-                    "content": content,
-                    "ok": ok,
-                    "message": message,
-                }
-            )
-            entry["commented"] = ok
-            entry["comment_message"] = message
+        if store.has_commented(song["id"]):
+            entry["comment_message"] = "已经评论过，跳过"
+        else:
+            content = reaction[:50]
+            cookie = store.cookie
+            if cookie and len(content) >= 2:
+                result = await post_song_comment(song["id"], content, cookie)
+                store.add_comment(
+                    {
+                        "at": entry["at"],
+                        "song_id": song["id"],
+                        "name": song["name"],
+                        "content": content,
+                        "ok": result["ok"],
+                        "message": result["message"],
+                        "comment_id": result.get("comment_id", ""),
+                    }
+                )
+                entry["commented"] = result["ok"]
+                entry["comment_message"] = result["message"]
     store.add_listened(entry)
     return entry

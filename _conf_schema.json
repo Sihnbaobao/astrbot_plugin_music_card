@@ -29,6 +29,30 @@
     "default": "",
     "hint": "追加在人格后面的额外说明，只用于插件页听歌和评论；可以写发评论时的口径限制。"
   },
+  "REPLY_WATCH": {
+    "description": "检查评论回复",
+    "type": "bool",
+    "default": true,
+    "hint": "定时检查自己评论下有没有新回复。"
+  },
+  "AUTO_REPLY": {
+    "description": "自动回复评论",
+    "type": "bool",
+    "default": false,
+    "hint": "有人回复你的评论时，自动用听歌人格回一句；关闭则只在插件页展示。"
+  },
+  "REPLY_INTERVAL_MINUTES": {
+    "description": "回复检查间隔（分钟）",
+    "type": "int",
+    "default": 10,
+    "hint": "每隔多少分钟检查一次回复。"
+  },
+  "REPLY_DAILY_LIMIT": {
+    "description": "每日自动回复上限",
+    "type": "int",
+    "default": 5,
+    "hint": "0 表示不自动回复。"
+  },
   "PROVIDER_ID": {
     "description": "听歌时用的模型",
     "type": "string",

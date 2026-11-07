@@ -1,3 +1,4 @@
+import asyncio
 import re
 import time
 from datetime import datetime
@@ -14,14 +15,16 @@ from astrbot.core import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .kugou import parse_kugou_card
-from .listener import listen
+from .listener import generate_reply, listen
 from .netease import (
+    get_comment_replies,
     get_netease_account,
     get_netease_csrf,
     get_netease_song,
     get_song_comments,
     get_song_lyrics,
     post_song_comment,
+    reply_to_comment,
     search_netease,
     search_netease_artist_songs,
     search_netease_candidates,
@@ -126,7 +129,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.7.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.8.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -137,7 +140,24 @@ class MusicCardPlugin(Star):
         self.store = MusicStore(self.data_dir)
         self._account = {}
         self._account_at = 0.0
+        self._reply_task = None
         self._register_web_apis()
+
+    async def initialize(self) -> None:
+        """插件激活时启动回复检查。"""
+        if self._reply_task is None:
+            self._reply_task = asyncio.create_task(self._reply_loop())
+            logger.info("[music-card] 回复检查已启动")
+
+    async def terminate(self) -> None:
+        """插件停用时取消后台任务。"""
+        if self._reply_task is not None:
+            self._reply_task.cancel()
+            try:
+                await self._reply_task
+            except asyncio.CancelledError:
+                pass
+            self._reply_task = None
 
     @filter.on_llm_request()
     async def on_llm_request(self, event, req):
@@ -244,6 +264,9 @@ class MusicCardPlugin(Star):
                 "listen_query": str(self._cfg("LISTEN_QUERY", "花谱")),
                 "persona_id": str(self._cfg("PERSONA_ID", "")),
                 "persona_extra": str(self._cfg("PERSONA_EXTRA", "")),
+                "replies": self.store.recent_replies(30),
+                "auto_reply": bool(self._cfg("AUTO_REPLY", False)),
+                "reply_watch": bool(self._cfg("REPLY_WATCH", True)),
             }
         )
 
@@ -336,25 +359,30 @@ class MusicCardPlugin(Star):
             payload = await request.json(default={})
         except Exception:
             payload = {}
-        persona_id = str((payload or {}).get("persona_id") or "").strip()
-        persona_extra = str((payload or {}).get("persona_extra") or "").strip()
-        if len(persona_extra) > 2000:
-            return error_response("人格补充太长了，控制在 2000 字以内")
+        data = payload or {}
+        updates = {}
+        if "persona_id" in data:
+            updates["PERSONA_ID"] = str(data.get("persona_id") or "").strip()
+        if "persona_extra" in data:
+            extra = str(data.get("persona_extra") or "").strip()
+            if len(extra) > 2000:
+                return error_response("人格补充太长了，控制在 2000 字以内")
+            updates["PERSONA_EXTRA"] = extra
+        if "auto_reply" in data:
+            updates["AUTO_REPLY"] = bool(data.get("auto_reply"))
+        if not updates:
+            return error_response("没有要保存的内容")
         if self.config is None:
             return error_response("插件配置不可用")
-        self.config["PERSONA_ID"] = persona_id
-        self.config["PERSONA_EXTRA"] = persona_extra
+        for key, value in updates.items():
+            self.config[key] = value
         try:
             await self.config.save_config_async()
         except Exception as exc:
-            logger.warning(f"[music-card] 保存人格设置失败：{exc}")
+            logger.warning(f"[music-card] 保存设置失败：{exc}")
             return error_response(f"保存失败：{exc}")
         return json_response(
-            {
-                "saved": True,
-                "persona_id": persona_id,
-                "persona_extra": persona_extra,
-            }
+            {"saved": True, **{k.lower(): v for k, v in updates.items()}}
         )
 
     async def _api_logout(self):
@@ -365,6 +393,86 @@ class MusicCardPlugin(Star):
         self._account = {}
         self._account_at = 0.0
         return json_response({"ok": True})
+
+    # ── 回复检查 ──
+
+    async def _reply_loop(self) -> None:
+        """定时检查自己评论下有没有新回复。"""
+        while True:
+            try:
+                await self._check_replies()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(f"[music-card] 检查回复失败：{exc}")
+            interval = max(1, int(self._cfg("REPLY_INTERVAL_MINUTES", 10)))
+            await asyncio.sleep(interval * 60)
+
+    async def _check_replies(self) -> None:
+        """检查最近评论下的新回复，必要时自动回复。"""
+        if not self._cfg("REPLY_WATCH", True):
+            return
+        auth = self.store.load_auth()
+        cookie = str(auth.get("cookie") or "")
+        if not cookie:
+            return
+        my_id = str(auth.get("userId") or "")
+        seen = self.store.seen_reply_ids()
+        auto_reply = bool(self._cfg("AUTO_REPLY", False))
+        daily_limit = int(self._cfg("REPLY_DAILY_LIMIT", 5))
+        for comment in self.store.recent_comments(20):
+            if not comment.get("ok") or not comment.get("comment_id"):
+                continue
+            replies = await get_comment_replies(
+                comment.get("song_id", ""), comment.get("comment_id", ""), cookie
+            )
+            for reply in replies:
+                reply_id = str(reply.get("reply_id") or "")
+                if not reply_id or reply_id in seen:
+                    continue
+                if my_id and str(reply.get("user_id") or "") == my_id:
+                    continue
+                seen.add(reply_id)
+                entry = {
+                    "at": datetime.now().isoformat(timespec="seconds"),
+                    "song_id": comment.get("song_id", ""),
+                    "name": comment.get("name", ""),
+                    "parent_comment_id": comment.get("comment_id", ""),
+                    "reply_id": reply_id,
+                    "user": reply.get("user", ""),
+                    "content": reply.get("content", ""),
+                    "my_reply": "",
+                }
+                if (
+                    auto_reply
+                    and daily_limit > 0
+                    and self.store.replies_today() < daily_limit
+                ):
+                    text = await generate_reply(
+                        self.context,
+                        comment.get("name", ""),
+                        comment.get("content", ""),
+                        reply.get("user", ""),
+                        reply.get("content", ""),
+                        persona_id=str(self._cfg("PERSONA_ID", "")),
+                        persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
+                        provider_id=str(self._cfg("PROVIDER_ID", "")),
+                    )
+                    if text:
+                        ok, message = await reply_to_comment(
+                            comment.get("song_id", ""),
+                            comment.get("comment_id", ""),
+                            text,
+                            cookie,
+                        )
+                        entry["my_reply"] = text
+                        entry["my_reply_ok"] = ok
+                        entry["my_reply_message"] = message
+                        if ok:
+                            logger.info(
+                                f"[music-card] 已回复 {reply.get('user', '')} 的评论"
+                            )
+                self.store.add_reply(entry)
 
     # ── 消息发送 ──
 
@@ -744,18 +852,21 @@ class MusicCardPlugin(Star):
         )
         if not listened:
             return "先听一遍这首歌再评论。"
+        if self.store.has_commented(song_id):
+            return "这首歌已经评论过了。"
         cookie = self.store.cookie
         if not cookie:
             return "还没有登录网易云，发不了评论。"
-        ok, message = await post_song_comment(song_id, content, cookie)
+        result = await post_song_comment(song_id, content, cookie)
         self.store.add_comment(
             {
                 "at": datetime.now().isoformat(timespec="seconds"),
                 "song_id": song_id,
                 "name": "",
                 "content": content,
-                "ok": ok,
-                "message": message,
+                "ok": result["ok"],
+                "message": result["message"],
+                "comment_id": result.get("comment_id", ""),
             }
         )
-        return "已评论" if ok else f"评论失败:{message}"
+        return "已评论" if result["ok"] else f"评论失败:{result['message']}"

@@ -27,6 +27,7 @@ class MusicStore:
         self.auth_path = self.root / "auth.json"
         self.listened_path = self.root / "listened.jsonl"
         self.comments_path = self.root / "comments.jsonl"
+        self.replies_path = self.root / "replies.jsonl"
 
     # ── 登录态 ──
 
@@ -117,6 +118,67 @@ class MusicStore:
             1
             for item in self._read(self.comments_path)
             if item.get("ok") and str(item.get("at", "")).startswith(today)
+        )
+
+    def has_commented(self, song_id) -> bool:
+        """是否已经在这首歌下发过评论。
+
+        Args:
+            song_id: 网易云歌曲 ID。
+
+        Returns:
+            True 表示已经成功评论过。
+        """
+        target = str(song_id or "")
+        return any(
+            item.get("ok") and str(item.get("song_id")) == target
+            for item in self._read(self.comments_path)
+        )
+
+    # ── 收到的回复 ──
+
+    def add_reply(self, entry: dict) -> None:
+        """追加一条收到的回复记录。
+
+        Args:
+            entry: 回复记录，至少包含 reply_id / song_id / content。
+        """
+        self._append(self.replies_path, entry)
+
+    def recent_replies(self, limit: int = 50) -> list[dict]:
+        """按时间倒序返回最近的回复记录。
+
+        Args:
+            limit: 最多返回多少条。
+
+        Returns:
+            回复记录列表。
+        """
+        return self._recent(self.replies_path, limit)
+
+    def seen_reply_ids(self) -> set[str]:
+        """已经记录过的回复 ID 集合。
+
+        Returns:
+            回复 ID 集合。
+        """
+        return {
+            str(item.get("reply_id"))
+            for item in self._read(self.replies_path)
+            if item.get("reply_id")
+        }
+
+    def replies_today(self) -> int:
+        """今天已经自动回复的条数。
+
+        Returns:
+            当日已回复数。
+        """
+        today = _today()
+        return sum(
+            1
+            for item in self._read(self.replies_path)
+            if item.get("my_reply") and str(item.get("at", "")).startswith(today)
         )
 
     # ── 内部读写 ──
