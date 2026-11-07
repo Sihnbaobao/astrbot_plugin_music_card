@@ -126,7 +126,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -247,6 +247,8 @@ class MusicCardPlugin(Star):
         """生成登录二维码。"""
         from astrbot.api.web import error_response, json_response
 
+        await self.login.close()
+        self.login = NeteaseLogin()
         try:
             data = await self.login.generate()
         except Exception as exc:
@@ -276,6 +278,9 @@ class MusicCardPlugin(Star):
             result = await self.login.poll(key)
         except Exception as exc:
             return error_response(str(exc))
+        if result["state"] != getattr(self, "_last_qr_state", ""):
+            self._last_qr_state = result["state"]
+            logger.info(f"[music-card] 扫码状态：{result['state']}")
         if result["state"] == "confirmed":
             cookie = result.get("cookie") or ""
             account = await get_netease_account(cookie)
@@ -290,9 +295,12 @@ class MusicCardPlugin(Star):
             )
             self._account = account
             self._account_at = time.time()
+            await self.login.close()
             return json_response(
                 {"state": "confirmed", "message": "登录成功", "account": account}
             )
+        if result["state"] == "expired":
+            await self.login.close()
         return json_response({"state": result["state"], "message": result["message"]})
 
     async def _api_listen(self):
