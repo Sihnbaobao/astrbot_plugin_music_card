@@ -82,5 +82,11 @@
     "type": "string",
     "default": "深夜,通勤,元气,emo",
     "hint": "逗号分隔，模型会从里面挑一个作为歌单分类。"
+  },
+  "LISTEN_SHARED": {
+    "description": "听别人分享的歌",
+    "type": "bool",
+    "default": true,
+    "hint": "有人分享音乐链接时，自动听一遍并回一句听后感；卡片则由模型决定是否听。"
   }
 }

@@ -9,7 +9,7 @@ import httpx
 
 from astrbot.api import AstrBotConfig
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
-from astrbot.api.message_components import Music
+from astrbot.api.message_components import Music, Plain
 from astrbot.api.star import Context, Star, register
 from astrbot.core import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.10.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.11.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -553,6 +553,45 @@ class MusicCardPlugin(Star):
         logger.info(f"163卡:id={song_id}")
         return True, ""
 
+    async def _listen_shared(self, event, song_id):
+        """Listen to a song shared in chat and reply with a short reaction.
+
+        Args:
+            event: Current message event.
+            song_id: Numeric NetEase song ID.
+        """
+        if not bool(self._cfg("LISTEN_SHARED", True)):
+            return
+        raw_categories = str(self._cfg("PLAYLIST_CATEGORIES", "深夜,通勤,元气,emo"))
+        categories = [
+            item.strip()
+            for item in raw_categories.replace("，", ",").split(",")
+            if item.strip()
+        ]
+        try:
+            entry = await listen(
+                self.context,
+                self.store,
+                song_id=song_id,
+                persona_id=str(self._cfg("PERSONA_ID", "")),
+                persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
+                provider_id=str(self._cfg("PROVIDER_ID", "")),
+                source="shared",
+                auto_save=bool(self._cfg("AUTO_SAVE", False)),
+                min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
+                playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
+                categories=categories,
+            )
+        except Exception as exc:
+            logger.warning(f"[music-card] 分享歌曲听歌失败：{exc}")
+            return
+        try:
+            await event.send(
+                MessageChain([Plain(f"听完《{entry['name']}》：{entry['reaction']}")])
+            )
+        except Exception as exc:
+            logger.warning(f"[music-card] 听后感发送失败：{exc}")
+
     # ── 链接处理 ──
 
     def _card_info(self, event):
@@ -646,6 +685,10 @@ class MusicCardPlugin(Star):
             plain_text = " ".join(plain_parts)
             if plain_text and plain_text not in info:
                 info += f" 文本:{plain_text}"
+            info += (
+                " （别人分享的歌；想听的话先用 search_songs 找到网易云 ID，"
+                "再 listen_song 听，然后说点什么。）"
+            )
             event.message_str = info
             event.message_obj.message = []
             return
@@ -675,6 +718,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, song_id)
             if ok:
+                await self._listen_shared(event, song_id)
                 event.stop_event()
                 return
             logger.warning(f"网易云链接转卡失败:{reason},继续尝试其他链接")
@@ -698,6 +742,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, ne["id"])
             if ok:
+                await self._listen_shared(event, ne["id"])
                 event.stop_event()
                 return
             logger.warning(f"QQ音乐转卡失败:{reason},继续尝试其他链接")
@@ -721,6 +766,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, ne["id"])
             if ok:
+                await self._listen_shared(event, ne["id"])
                 event.stop_event()
                 return
             logger.warning(f"酷狗转卡失败:{reason},继续尝试其他链接")

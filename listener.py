@@ -286,6 +286,7 @@ async def listen(
     min_score=9,
     playlist_prefix="璃月",
     categories=(),
+    source="manual",
 ):
     """听一首歌并记录，必要时去评论区留言。
 
@@ -305,6 +306,7 @@ async def listen(
         min_score: 达到多少分才收藏。
         playlist_prefix: 歌单名前缀。
         categories: 可选歌单分类。
+        source: 听歌来源标记，manual / shared / chat。
 
     Returns:
         写入的听歌记录。
@@ -355,7 +357,7 @@ async def listen(
         "category": category,
         "like": liked,
         "commented": False,
-        "source": "manual",
+        "source": source,
     }
     if auto_comment and daily_limit > 0 and store.comments_today() < daily_limit:
         if store.has_commented(song["id"]):
