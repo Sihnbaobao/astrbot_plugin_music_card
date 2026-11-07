@@ -44,8 +44,8 @@
   "REPLY_INTERVAL_MINUTES": {
     "description": "回复检查间隔（分钟）",
     "type": "int",
-    "default": 10,
-    "hint": "每隔多少分钟检查一次回复。"
+    "default": 30,
+    "hint": "默认 30 分钟；只查最近 5 条、7 天内的评论，避免请求太频繁。"
   },
   "REPLY_DAILY_LIMIT": {
     "description": "每日自动回复上限",

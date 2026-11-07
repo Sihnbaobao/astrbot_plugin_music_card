@@ -1,7 +1,7 @@
 import asyncio
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -129,7 +129,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.8.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.8.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -405,7 +405,7 @@ class MusicCardPlugin(Star):
                 raise
             except Exception as exc:
                 logger.warning(f"[music-card] 检查回复失败：{exc}")
-            interval = max(1, int(self._cfg("REPLY_INTERVAL_MINUTES", 10)))
+            interval = max(5, int(self._cfg("REPLY_INTERVAL_MINUTES", 30)))
             await asyncio.sleep(interval * 60)
 
     async def _check_replies(self) -> None:
@@ -420,9 +420,15 @@ class MusicCardPlugin(Star):
         seen = self.store.seen_reply_ids()
         auto_reply = bool(self._cfg("AUTO_REPLY", False))
         daily_limit = int(self._cfg("REPLY_DAILY_LIMIT", 5))
-        for comment in self.store.recent_comments(20):
-            if not comment.get("ok") or not comment.get("comment_id"):
-                continue
+        cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+        comments = [
+            item
+            for item in self.store.recent_comments(20)
+            if item.get("ok")
+            and item.get("comment_id")
+            and str(item.get("at", "")) >= cutoff
+        ][:5]
+        for comment in comments:
             replies = await get_comment_replies(
                 comment.get("song_id", ""), comment.get("comment_id", ""), cookie
             )
