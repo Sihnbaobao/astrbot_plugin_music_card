@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.11.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.12.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -171,12 +171,20 @@ class MusicCardPlugin(Star):
             req: Provider request being built.
         """
         text = str(getattr(event, "message_str", "") or "")
-        if not re.search(r"(推荐|歌单|好听的歌|听什么歌|有什么歌|找.*歌|想听)", text):
+        hints = []
+        if re.search(r"(推荐|歌单|好听的歌|听什么歌|有什么歌|找.*歌|想听)", text):
+            hints.append(
+                "提到推荐或找歌时，先用 search_songs 确认真实歌曲；"
+                "只提搜索结果里出现的歌，没搜到就说没找到，不要凭印象补一个不存在的歌名。"
+            )
+        if re.search(r"(听歌|听会儿歌|去听|听听歌|放首歌|听一首)", text):
+            hints.append(
+                "对方让你去听歌、或你自己想听时，调用 listen_music；"
+                "query 留空就按你的喜好挑，它会真的去网易云听并返回听后感。"
+            )
+        if not hints:
             return
-        hint = (
-            "\n\n[音乐] 提到推荐或找歌时，先用 search_songs 确认真实歌曲；"
-            "只提搜索结果里出现的歌，没搜到就说没找到，不要凭印象补一个不存在的歌名。"
-        )
+        hint = "\n\n[音乐] " + " ".join(hints)
         req.system_prompt = str(getattr(req, "system_prompt", "") or "") + hint
 
     def _event_state(self, event):
@@ -888,6 +896,53 @@ class MusicCardPlugin(Star):
                 )
         if not lyrics.get("lyric") and not comments:
             lines.append("(没拿到歌词或评论)")
+        return "\n".join(lines)
+
+    @filter.llm_tool(name="listen_music")
+    async def listen_music(self, event: AstrMessageEvent, query: str = ""):
+        """真的去网易云听一首歌，返回听后感；比 listen_song 更完整。
+
+        想听歌、或对方让你去听时调用。query 留空按人格喜好自己挑；填歌名/歌手就听指定的。
+        听完会把听后感返回给你，你可以直接用它回复对方。
+
+        Args:
+            query(string): 歌名或歌手；留空则按人格喜好挑。
+
+        Returns:
+            听后感；失败时说明原因。
+        """
+        query = str(query or "").strip()
+        raw_categories = str(self._cfg("PLAYLIST_CATEGORIES", "深夜,通勤,元气,emo"))
+        categories = [
+            item.strip()
+            for item in raw_categories.replace("，", ",").split(",")
+            if item.strip()
+        ]
+        try:
+            entry = await listen(
+                self.context,
+                self.store,
+                query=query,
+                persona_id=str(self._cfg("PERSONA_ID", "")),
+                persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
+                provider_id=str(self._cfg("PROVIDER_ID", "")),
+                persona_pick=not query,
+                fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
+                source="chat",
+                auto_save=bool(self._cfg("AUTO_SAVE", False)),
+                min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
+                playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
+                categories=categories,
+            )
+        except Exception as exc:
+            logger.warning(f"[music-card] 聊天听歌失败：{exc}")
+            return f"没听成：{exc}"
+        lines = [
+            f"听了《{entry['name']}》（{entry['artist']}）。",
+            f"听后感：{entry['reaction']}",
+        ]
+        if entry.get("saved"):
+            lines.append(f"已收藏并加入歌单「{entry.get('playlist', '')}」。")
         return "\n".join(lines)
 
     @filter.llm_tool(name="comment_song")
