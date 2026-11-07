@@ -147,6 +147,49 @@ async def generate_reply(
     return _clean_reaction(getattr(response, "completion_text", "") or "")
 
 
+async def choose_query(
+    context,
+    persona_id="",
+    persona_extra="",
+    provider_id="",
+    recent_names=(),
+):
+    """按人格喜好挑一个搜索词。
+
+    Args:
+        context: AstrBot Context。
+        persona_id: 用哪个人格。
+        persona_extra: 人格补充。
+        provider_id: 用哪个模型。
+        recent_names: 最近听过的歌名，用来避免重复。
+
+    Returns:
+        歌名或歌手名；没有可用模型或生成失败时返回空串。
+    """
+    system_prompt = persona_prompt(context, persona_id)
+    if persona_extra:
+        system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
+    provider = provider_id or await _current_provider(context)
+    if not provider:
+        return ""
+    recent = "、".join(str(name) for name in recent_names if name) or "（无）"
+    prompt = (
+        "你正在挑一首现在想听的歌。\n"
+        f"你最近听过：{recent}\n"
+        "根据你的喜好挑一首，不要和最近听过的重复。\n"
+        "只输出一个搜索词：歌名或歌手名，不要解释、不要标点。"
+    )
+    response = await context.llm_generate(
+        chat_provider_id=provider,
+        prompt=prompt,
+        system_prompt=system_prompt or None,
+        max_tokens=40,
+    )
+    text = _clean_reaction(getattr(response, "completion_text", "") or "")
+    text = text.splitlines()[0].strip() if text else ""
+    return text[:40]
+
+
 async def resolve_song(query="", song_id="", *, randomize=False, exclude_ids=()):
     """把歌曲 ID 或搜索词解析成一首歌。
 
@@ -188,6 +231,8 @@ async def listen(
     persona_id="",
     persona_extra="",
     provider_id="",
+    persona_pick=False,
+    fallback_query="花谱",
     auto_comment=False,
     daily_limit=3,
 ):
@@ -201,6 +246,8 @@ async def listen(
         persona_id: 用哪个人格写听后感。
         persona_extra: 追加在人格后面的补充说明，用于评论前的口径调整。
         provider_id: 用哪个模型，空则用当前聊天模型。
+        persona_pick: 没有指定搜索词时，是否让模型按人格喜好挑一首。
+        fallback_query: 人格挑歌失败时的兜底搜索词。
         auto_comment: 听完是否自动评论。
         daily_limit: 每日评论上限。
 
@@ -210,7 +257,18 @@ async def listen(
     Raises:
         ValueError: 没找到歌或没有可用模型。
     """
-    recent_ids = [str(item.get("song_id") or "") for item in store.recent_listened(5)]
+    recent_items = store.recent_listened(5)
+    recent_ids = [str(item.get("song_id") or "") for item in recent_items]
+    if not query and not song_id and persona_pick:
+        query = await choose_query(
+            context,
+            persona_id,
+            persona_extra,
+            provider_id,
+            [str(item.get("name") or "") for item in recent_items],
+        )
+    if not query and not song_id:
+        query = fallback_query
     song = await resolve_song(query, song_id, randomize=True, exclude_ids=recent_ids)
     if not song:
         raise ValueError("没找到这首歌")

@@ -258,9 +258,6 @@ async function refresh() {
       " 条，共 " +
       (data.comments_total || 0) +
       " 条";
-    if (!state.busy && document.activeElement !== el("queryInput")) {
-      el("queryInput").value = data.listen_query || "";
-    }
     el("autoComment").checked = !!data.auto_comment;
     if (!state.settingsLoaded) {
       state.settingsLoaded = true;
@@ -304,13 +301,11 @@ async function logout() {
 async function listenOnce() {
   if (state.busy) return;
   const query = el("queryInput").value.trim();
-  if (!query) {
-    setNotice("先填一个歌名或歌手", "warn");
-    return;
-  }
   state.busy = true;
   el("listenBtn").disabled = true;
-  el("listenStatus").textContent = "正在听…（要读歌词、看评论，再写听后感，可能要十几秒）";
+  el("listenStatus").textContent = query
+    ? "正在听…（要读歌词、看评论，再写听后感，可能要十几秒）"
+    : "正在按它的喜好挑歌…";
   el("listenResult").hidden = true;
   try {
     const data = await bridge.apiPost("page/listen", {

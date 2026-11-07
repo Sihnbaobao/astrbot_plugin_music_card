@@ -129,7 +129,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.8.2")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.9.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -312,7 +312,7 @@ class MusicCardPlugin(Star):
             payload = await request.json(default={})
         except Exception:
             payload = {}
-        query = str((payload or {}).get("query") or self._cfg("LISTEN_QUERY", "花谱"))
+        query = str((payload or {}).get("query") or "").strip()
         song_id = str((payload or {}).get("song_id") or "")
         auto = bool(
             (payload or {}).get("auto_comment", self._cfg("AUTO_COMMENT", False))
@@ -326,6 +326,8 @@ class MusicCardPlugin(Star):
                 persona_id=str(self._cfg("PERSONA_ID", "")),
                 persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
                 provider_id=str(self._cfg("PROVIDER_ID", "")),
+                persona_pick=not query and not song_id,
+                fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
                 auto_comment=auto,
                 daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
             )
