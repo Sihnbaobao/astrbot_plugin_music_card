@@ -283,6 +283,29 @@ async function cookieLogin() {
   }
 }
 
+async function passwordLogin() {
+  const account = el("accountInput").value.trim();
+  const password = el("passwordInput").value;
+  if (!account || !password) {
+    setNotice("账号和密码都要填", "warn");
+    return;
+  }
+  el("passwordBtn").disabled = true;
+  try {
+    await bridge.apiPost("page/login/password", {
+      account: account,
+      password: password,
+    });
+    el("passwordInput").value = "";
+    setNotice("登录成功", "ok");
+    await refresh();
+  } catch (error) {
+    setNotice("登录失败：" + error.message, "error");
+  } finally {
+    el("passwordBtn").disabled = false;
+  }
+}
+
 async function logout() {
   try {
     await bridge.apiPost("page/logout", {});
@@ -301,6 +324,7 @@ function bind() {
   el("loginBtn").addEventListener("click", startLogin);
   el("logoutBtn").addEventListener("click", logout);
   el("cookieBtn").addEventListener("click", cookieLogin);
+  el("passwordBtn").addEventListener("click", passwordLogin);
   el("listenBtn").addEventListener("click", listenOnce);
   el("queryInput").addEventListener("keydown", function (event) {
     if (event.key === "Enter") listenOnce();

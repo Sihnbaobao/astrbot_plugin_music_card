@@ -127,7 +127,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.2")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.6.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -206,6 +206,12 @@ class MusicCardPlugin(Star):
                 self._api_login_cookie,
                 ["POST"],
                 "听歌：Cookie 登录",
+            ),
+            (
+                "page/login/password",
+                self._api_login_password,
+                ["POST"],
+                "听歌：账号密码登录",
             ),
             ("page/listen", self._api_listen, ["POST"], "听歌：手动听一首"),
             ("page/logout", self._api_logout, ["POST"], "听歌：退出登录"),
@@ -342,6 +348,39 @@ class MusicCardPlugin(Star):
         self._account = account
         self._account_at = time.time()
         return json_response({"ok": True, "account": account})
+
+    async def _api_login_password(self):
+        """用手机号/邮箱 + 密码登录。"""
+        from astrbot.api.web import error_response, json_response, request
+
+        try:
+            payload = await request.json(default={})
+        except Exception:
+            payload = {}
+        account = str((payload or {}).get("account") or "").strip()
+        password = str((payload or {}).get("password") or "")
+        if not account or not password:
+            return error_response("账号和密码都要填")
+        await self.login.close()
+        self.login = NeteaseLogin()
+        result = await self.login.login_by_password(account, password)
+        if not result.get("ok"):
+            return error_response(result.get("message") or "登录失败")
+        cookie = result.get("cookie") or ""
+        account_info = await get_netease_account(cookie)
+        self.store.save_auth(
+            {
+                "cookie": cookie,
+                "name": account_info.get("name", ""),
+                "avatar": account_info.get("avatar", ""),
+                "userId": account_info.get("userId", ""),
+                "at": time.time(),
+            }
+        )
+        self._account = account_info
+        self._account_at = time.time()
+        await self.login.close()
+        return json_response({"ok": True, "account": account_info})
 
     async def _api_listen(self):
         """手动听一首歌。"""

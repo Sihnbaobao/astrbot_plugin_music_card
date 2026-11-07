@@ -5,6 +5,7 @@
 """
 
 import base64
+import hashlib
 import io
 import json
 import random
@@ -15,6 +16,8 @@ from Crypto.Cipher import AES
 
 _UNIKEY_URL = "https://music.163.com/weapi/login/qrcode/unikey"
 _POLL_URL = "https://music.163.com/weapi/login/qrcode/client/login"
+_LOGIN_PHONE_URL = "https://music.163.com/weapi/login/cellphone"
+_LOGIN_EMAIL_URL = "https://music.163.com/weapi/login"
 _HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
 _STATES = {800: "expired", 801: "waiting", 802: "scanned", 803: "confirmed"}
 
@@ -164,3 +167,66 @@ class NeteaseLogin:
             result["cookie"] = _cookie_string(cookies)
             result["cookies"] = cookies
         return result
+
+    async def login_by_password(self, account, password):
+        """用手机号/邮箱 + 密码登录。
+
+        密码只在这次请求里用，不写盘、不打日志。
+
+        Args:
+            account: 手机号或邮箱。
+            password: 明文密码。
+
+        Returns:
+            包含 ok、message 的字典；成功时额外带 cookie。
+        """
+        account = str(account or "").strip()
+        password = str(password or "")
+        if not account or not password:
+            return {"ok": False, "message": "账号和密码都要填"}
+        digest = hashlib.md5(password.encode()).hexdigest()
+        if account.isdigit() and len(account) >= 6:
+            url = _LOGIN_PHONE_URL
+            payload = {
+                "phone": account,
+                "countrycode": "86",
+                "password": digest,
+                "rememberLogin": "true",
+                "csrf_token": "",
+            }
+        else:
+            url = _LOGIN_EMAIL_URL
+            payload = {
+                "username": account,
+                "password": digest,
+                "rememberLogin": "true",
+                "csrf_token": "",
+            }
+        client = await self._get_client()
+        try:
+            response = await client.post(url, data=_weapi(payload))
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            return {"ok": False, "message": f"登录请求失败：{exc}"}
+        code = int(data.get("code") or 0)
+        if code != 200:
+            message = str(
+                data.get("message") or data.get("msg") or f"网易云返回 {code}"
+            )
+            return {"ok": False, "message": message, "code": code}
+        cookies = dict(client.cookies.items())
+        if not cookies.get("__csrf"):
+            try:
+                home = await client.get("https://music.163.com/")
+                csrf = str(home.cookies.get("__csrf") or "")
+            except Exception:
+                csrf = ""
+            if csrf:
+                cookies["__csrf"] = csrf
+        return {
+            "ok": True,
+            "message": "登录成功",
+            "cookie": _cookie_string(cookies),
+            "cookies": cookies,
+        }

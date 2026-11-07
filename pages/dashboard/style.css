@@ -120,6 +120,16 @@ body {
 .manual summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .manual p { margin: 8px 0; }
 .manual code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.pw-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pw-row input {
+  flex: 1 1 160px;
+  min-width: 140px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
 .manual textarea {
   width: 100%;
   margin-bottom: 8px;

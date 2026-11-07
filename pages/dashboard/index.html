@@ -55,6 +55,17 @@
           <textarea id="cookieInput" rows="3" placeholder="MUSIC_U=...; __csrf=..."></textarea>
           <button class="btn ghost" id="cookieBtn" type="button">用 Cookie 登录</button>
         </details>
+        <details class="manual">
+          <summary>账号密码登录</summary>
+          <p class="hint">
+            手机号或邮箱 + 密码。密码只用于这一次登录、不会保存；网易云风控严格时可能仍然失败。
+          </p>
+          <div class="pw-row">
+            <input id="accountInput" type="text" autocomplete="off" placeholder="手机号或邮箱" />
+            <input id="passwordInput" type="password" autocomplete="off" placeholder="密码" />
+            <button class="btn ghost" id="passwordBtn" type="button">登录</button>
+          </div>
+        </details>
       </section>
 
       <section class="card">
