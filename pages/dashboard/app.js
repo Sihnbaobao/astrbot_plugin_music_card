@@ -96,6 +96,13 @@ function renderListened(items) {
         : item.source === "chat"
           ? '<span class="tag">聊天里听的</span>'
           : "";
+      const score = item.score ? '<span class="tag">' + item.score + " 分</span>" : "";
+      const category = item.category
+        ? '<span class="tag">' + escapeHtml(item.category) + "</span>"
+        : "";
+      const saved = item.saved
+        ? '<span class="tag ok">' + escapeHtml(item.playlist || "已进歌单") + "</span>"
+        : "";
       return (
         "<li>" +
         '<div class="rec-main"><strong>' +
@@ -107,6 +114,9 @@ function renderListened(items) {
         formatAt(item.at) +
         "</span>" +
         comment +
+        score +
+        category +
+        saved +
         "</div>" +
         reaction +
         "</li>"
@@ -316,8 +326,13 @@ async function listenOnce() {
     el("resultSong").textContent = (entry.name || "") + " — " + (entry.artist || "");
     el("resultReaction").textContent = entry.reaction || "（它没说出什么）";
     el("listenResult").hidden = false;
-    el("listenStatus").textContent = entry.commented
-      ? "听完了，也去评论区留言了。"
+    const extra = [];
+    if (entry.score) extra.push(entry.score + " 分");
+    if (entry.category) extra.push(entry.category);
+    if (entry.saved) extra.push("已加入「" + (entry.playlist || "歌单") + "」");
+    if (entry.commented) extra.push("已评论");
+    el("listenStatus").textContent = extra.length
+      ? "听完了（" + extra.join(" · ") + "）。"
       : "听完了。";
     await refresh();
   } catch (error) {

@@ -4,6 +4,7 @@
 听后感由聊天模型自己说。
 """
 
+import json
 import random
 import re
 from datetime import datetime
@@ -11,9 +12,12 @@ from datetime import datetime
 from astrbot.core import logger
 
 from .netease import (
+    add_song_to_playlist,
+    find_or_create_playlist,
     get_netease_song,
     get_song_comments,
     get_song_lyrics,
+    like_song,
     post_song_comment,
     search_netease_artist_songs,
     search_netease_candidates,
@@ -38,13 +42,42 @@ def _clean_reaction(text):
     return text[:120]
 
 
-def build_prompt(song, lyrics, comments):
+def _parse_reaction(text):
+    """解析模型返回的听后感 JSON。
+
+    Args:
+        text: 模型原始输出。
+
+    Returns:
+        (听后感, 1-10 的分数, 分类)；不是 JSON 时分数为 0。
+    """
+    text = str(text or "").strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            reaction = _clean_reaction(data.get("reaction") or "")
+            try:
+                score = int(data.get("score") or 0)
+            except (TypeError, ValueError):
+                score = 0
+            category = str(data.get("category") or "").strip()
+            return reaction, max(0, min(score, 10)), category
+    return _clean_reaction(text), 0, ""
+
+
+def build_prompt(song, lyrics, comments, categories=()):
     """拼听歌提示词。
 
     Args:
         song: get_netease_song 返回的歌曲信息。
         lyrics: 包含 lyric 和 translation 的字典。
         comments: 热评列表。
+        categories: 可选歌单分类，让模型挑一个。
 
     Returns:
         发给模型的提示词。
@@ -63,8 +96,14 @@ def build_prompt(song, lyrics, comments):
         for item in comments[:5]:
             lines.append(f"- {item['user']}（{item['liked']} 赞）：{item['content']}")
     lines.append("")
+    category_text = "、".join(str(item) for item in categories if item) or "其他"
     lines.append(
-        "用你的人格写一句听后感，20-60 字，只写听后感本身，不要解释设定、不要列点。"
+        "用你的人格写一句听后感，20-60 字；并从这些分类里挑一个最合适的："
+        f"{category_text}。"
+    )
+    lines.append(
+        '只输出 JSON：{"reaction": "听后感", "score": 1到10的整数, "category": "分类"}，'
+        "不要解释、不要代码块。"
     )
     return "\n".join(lines)
 
@@ -235,6 +274,10 @@ async def listen(
     fallback_query="花谱",
     auto_comment=False,
     daily_limit=3,
+    auto_save=False,
+    min_score=8,
+    playlist_prefix="璃月",
+    categories=(),
 ):
     """听一首歌并记录，必要时去评论区留言。
 
@@ -250,6 +293,10 @@ async def listen(
         fallback_query: 人格挑歌失败时的兜底搜索词。
         auto_comment: 听完是否自动评论。
         daily_limit: 每日评论上限。
+        auto_save: 听完是否按分数自动收藏并加入歌单。
+        min_score: 达到多少分才收藏。
+        playlist_prefix: 歌单名前缀。
+        categories: 可选歌单分类。
 
     Returns:
         写入的听歌记录。
@@ -274,7 +321,7 @@ async def listen(
         raise ValueError("没找到这首歌")
     lyrics = await get_song_lyrics(song["id"])
     comments = await get_song_comments(song["id"], 6)
-    prompt = build_prompt(song, lyrics, comments)
+    prompt = build_prompt(song, lyrics, comments, categories)
     system_prompt = persona_prompt(context, persona_id)
     if persona_extra:
         system_prompt = f"{system_prompt}\n\n{persona_extra}".strip()
@@ -287,13 +334,17 @@ async def listen(
         system_prompt=system_prompt or None,
         max_tokens=200,
     )
-    reaction = _clean_reaction(getattr(response, "completion_text", "") or "")
+    reaction, score, category = _parse_reaction(
+        getattr(response, "completion_text", "") or ""
+    )
     entry = {
         "at": datetime.now().isoformat(timespec="seconds"),
         "song_id": song["id"],
         "name": song["name"],
         "artist": song["artist"],
         "reaction": reaction,
+        "score": score,
+        "category": category,
         "commented": False,
         "source": "manual",
     }
@@ -318,5 +369,21 @@ async def listen(
                 )
                 entry["commented"] = result["ok"]
                 entry["comment_message"] = result["message"]
+    if auto_save and score >= min_score and store.cookie:
+        auth = store.load_auth()
+        cookie = store.cookie
+        liked, _ = await like_song(song["id"], cookie)
+        playlist_name = (
+            f"{playlist_prefix}·{category}" if category else f"{playlist_prefix}·收藏"
+        )
+        playlist_id = await find_or_create_playlist(
+            playlist_name, cookie, auth.get("userId")
+        )
+        added = False
+        if playlist_id:
+            added, _ = await add_song_to_playlist(playlist_id, song["id"], cookie)
+        entry["liked"] = liked
+        entry["playlist"] = playlist_name if playlist_id else ""
+        entry["saved"] = added
     store.add_listened(entry)
     return entry

@@ -17,12 +17,15 @@ from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 from .kugou import parse_kugou_card
 from .listener import generate_reply, listen
 from .netease import (
+    add_song_to_playlist,
+    find_or_create_playlist,
     get_comment_replies,
     get_netease_account,
     get_netease_csrf,
     get_netease_song,
     get_song_comments,
     get_song_lyrics,
+    like_song,
     post_song_comment,
     reply_to_comment,
     search_netease,
@@ -129,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.9.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.10.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -317,6 +320,12 @@ class MusicCardPlugin(Star):
         auto = bool(
             (payload or {}).get("auto_comment", self._cfg("AUTO_COMMENT", False))
         )
+        raw_categories = str(self._cfg("PLAYLIST_CATEGORIES", "深夜,通勤,元气,emo"))
+        categories = [
+            item.strip()
+            for item in raw_categories.replace("，", ",").split(",")
+            if item.strip()
+        ]
         try:
             entry = await listen(
                 self.context,
@@ -330,6 +339,10 @@ class MusicCardPlugin(Star):
                 fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
                 auto_comment=auto,
                 daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
+                auto_save=bool(self._cfg("AUTO_SAVE", False)),
+                min_score=int(self._cfg("LIKE_MIN_SCORE", 8)),
+                playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
+                categories=categories,
             )
         except Exception as exc:
             logger.warning(f"[music-card] 听歌失败：{exc}")
@@ -879,3 +892,44 @@ class MusicCardPlugin(Star):
             }
         )
         return "已评论" if result["ok"] else f"评论失败:{result['message']}"
+
+    @filter.llm_tool(name="like_song")
+    async def like_song_tool(self, event: AstrMessageEvent, song_id: str):
+        """收藏一首歌到网易云「我喜欢的音乐」；不会发送聊天消息。
+
+        Args:
+            song_id(string): 网易云歌曲 ID。
+
+        Returns:
+            "已收藏" 或失败原因。
+        """
+        cookie = self.store.cookie
+        if not cookie:
+            return "还没有登录网易云，先登录再收藏。"
+        ok, message = await like_song(song_id, cookie)
+        return "已收藏" if ok else f"收藏失败:{message}"
+
+    @filter.llm_tool(name="save_to_playlist")
+    async def save_to_playlist_tool(
+        self, event: AstrMessageEvent, song_id: str, category: str = ""
+    ):
+        """把一首歌加入歌单，歌单不存在会自动创建；不会发送聊天消息。
+
+        Args:
+            song_id(string): 网易云歌曲 ID。
+            category(string): 歌单分类，比如 深夜、通勤；留空归到「收藏」。
+
+        Returns:
+            "已加入歌单「...」" 或失败原因。
+        """
+        cookie = self.store.cookie
+        auth = self.store.load_auth()
+        if not cookie:
+            return "还没有登录网易云，先登录再加入歌单。"
+        prefix = str(self._cfg("PLAYLIST_PREFIX", "璃月"))
+        name = f"{prefix}·{category.strip()}" if category.strip() else f"{prefix}·收藏"
+        playlist_id = await find_or_create_playlist(name, cookie, auth.get("userId"))
+        if not playlist_id:
+            return "创建或查找歌单失败。"
+        ok, message = await add_song_to_playlist(playlist_id, song_id, cookie)
+        return f"已加入歌单「{name}」" if ok else f"加入歌单失败:{message}"

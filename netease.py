@@ -1,3 +1,4 @@
+import json
 import re
 from difflib import SequenceMatcher
 
@@ -790,3 +791,216 @@ async def get_netease_csrf(cookie):
     except Exception as e:
         logger.warning(f"__csrf 获取失败:{e}")
         return ""
+
+
+async def like_song(song_id, cookie, like=True):
+    """收藏或取消收藏一首歌。
+
+    Args:
+        song_id: 网易云歌曲 ID。
+        cookie: 登录后的 Cookie。
+        like: True 收藏，False 取消收藏。
+
+    Returns:
+        (是否成功, 说明文字)。
+    """
+    song_id = str(song_id or "").strip()
+    if not song_id.isdigit():
+        return False, "歌曲 ID 无效"
+    if not cookie:
+        return False, "没有登录"
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "trackId": song_id,
+        "like": "true" if like else "false",
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": f"https://music.163.com/song?id={song_id}",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/song/like", data=weapi(payload)
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"收藏失败:{e}")
+        return False, f"收藏失败:{e}"
+    code = int(data.get("code") or 0)
+    if code == 200:
+        return True, "已收藏" if like else "已取消收藏"
+    return False, str(data.get("message") or data.get("msg") or f"网易云返回 {code}")
+
+
+async def get_user_playlists(cookie, uid, limit=50):
+    """获取用户的歌单列表。
+
+    Args:
+        cookie: 登录后的 Cookie。
+        uid: 用户 ID。
+        limit: 最多返回多少个。
+
+    Returns:
+        包含 id、name、track_count 的列表；失败时为空列表。
+    """
+    if not cookie or not uid:
+        return []
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "uid": str(uid),
+        "limit": max(1, min(int(limit or 50), 100)),
+        "offset": 0,
+        "includeVideo": True,
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": "https://music.163.com/",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/user/playlist", data=weapi(payload)
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"歌单列表获取失败:{e}")
+        return []
+    results = []
+    for item in data.get("playlist") or []:
+        if not isinstance(item, dict):
+            continue
+        results.append(
+            {
+                "id": str(item.get("id") or ""),
+                "name": str(item.get("name") or ""),
+                "track_count": item.get("trackCount"),
+            }
+        )
+    return results
+
+
+async def create_playlist(name, cookie):
+    """创建歌单。
+
+    Args:
+        name: 歌单名。
+        cookie: 登录后的 Cookie。
+
+    Returns:
+        包含 ok、id、message 的字典。
+    """
+    name = str(name or "").strip()
+    if not name:
+        return {"ok": False, "id": "", "message": "歌单名不能为空"}
+    if not cookie:
+        return {"ok": False, "id": "", "message": "没有登录"}
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "name": name,
+        "privacy": "0",
+        "type": "NORMAL",
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": "https://music.163.com/",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/playlist/create", data=weapi(payload)
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"歌单创建失败:{e}")
+        return {"ok": False, "id": "", "message": f"歌单创建失败:{e}"}
+    code = int(data.get("code") or 0)
+    if code == 200:
+        playlist = data.get("playlist") or {}
+        playlist_id = str(data.get("id") or playlist.get("id") or "")
+        return {"ok": True, "id": playlist_id, "message": "已创建"}
+    message = str(data.get("message") or data.get("msg") or f"网易云返回 {code}")
+    return {"ok": False, "id": "", "message": message}
+
+
+async def add_song_to_playlist(playlist_id, song_id, cookie):
+    """把一首歌加入歌单。
+
+    Args:
+        playlist_id: 歌单 ID。
+        song_id: 网易云歌曲 ID。
+        cookie: 登录后的 Cookie。
+
+    Returns:
+        (是否成功, 说明文字)。
+    """
+    playlist_id = str(playlist_id or "").strip()
+    song_id = str(song_id or "").strip()
+    if not playlist_id or not song_id.isdigit():
+        return False, "歌单或歌曲 ID 无效"
+    if not cookie:
+        return False, "没有登录"
+    csrf = _cookie_value(cookie, "__csrf")
+    payload = {
+        "op": "add",
+        "pid": playlist_id,
+        "trackIds": json.dumps([song_id]),
+        "imme": "true",
+        "csrf_token": csrf,
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": _COMMENT_UA,
+                "Referer": "https://music.163.com/",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.post(
+                "https://music.163.com/weapi/playlist/manipulate/tracks",
+                data=weapi(payload),
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        logger.warning(f"加入歌单失败:{e}")
+        return False, f"加入歌单失败:{e}"
+    code = int(data.get("code") or 0)
+    if code == 200:
+        return True, "已加入歌单"
+    return False, str(data.get("message") or data.get("msg") or f"网易云返回 {code}")
+
+
+async def find_or_create_playlist(name, cookie, uid):
+    """按名字找歌单，没有就创建一个。
+
+    Args:
+        name: 歌单名。
+        cookie: 登录后的 Cookie。
+        uid: 用户 ID。
+
+    Returns:
+        歌单 ID；失败时返回空串。
+    """
+    playlists = await get_user_playlists(cookie, uid)
+    for item in playlists:
+        if item.get("name") == name:
+            return item.get("id", "")
+    result = await create_playlist(name, cookie)
+    return result.get("id", "") if result.get("ok") else ""

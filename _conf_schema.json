@@ -58,5 +58,29 @@
     "type": "string",
     "default": "",
     "hint": "留空使用当前聊天模型。"
+  },
+  "AUTO_SAVE": {
+    "description": "听完自动收藏",
+    "type": "bool",
+    "default": false,
+    "hint": "听完评分达到阈值时，自动红心并加入歌单。"
+  },
+  "LIKE_MIN_SCORE": {
+    "description": "收藏分数阈值",
+    "type": "int",
+    "default": 8,
+    "hint": "听后感评分达到多少分才收藏（1-10）。"
+  },
+  "PLAYLIST_PREFIX": {
+    "description": "歌单名前缀",
+    "type": "string",
+    "default": "璃月",
+    "hint": "自动创建的歌单名格式：前缀·分类。"
+  },
+  "PLAYLIST_CATEGORIES": {
+    "description": "歌单分类",
+    "type": "string",
+    "default": "深夜,通勤,元气,emo",
+    "hint": "逗号分隔，模型会从里面挑一个作为歌单分类。"
   }
 }
