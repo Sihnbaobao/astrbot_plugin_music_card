@@ -630,3 +630,30 @@ async def get_netease_account(cookie):
         "avatar": str(profile.get("avatarUrl") or "").strip(),
         "userId": str(profile.get("userId") or "").strip(),
     }
+
+
+async def get_netease_csrf(cookie):
+    """访问首页补一个 __csrf，手动 Cookie 登录时可能没带。
+
+    Args:
+        cookie: 当前 Cookie 字符串。
+
+    Returns:
+        __csrf 的值；拿不到时返回空串。
+    """
+    if not cookie:
+        return ""
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://music.163.com/",
+                "Cookie": cookie,
+            },
+        ) as client:
+            response = await client.get("https://music.163.com/")
+            return str(response.cookies.get("__csrf") or "")
+    except Exception as e:
+        logger.warning(f"__csrf 获取失败:{e}")
+        return ""

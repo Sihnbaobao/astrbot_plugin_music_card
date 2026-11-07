@@ -116,6 +116,22 @@ body {
 .qr-box img { width: 180px; height: 180px; border-radius: 8px; background: #fff; padding: 6px; }
 .qr-box a { color: var(--accent); font-size: 12px; }
 
+.manual { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.manual summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.manual p { margin: 8px 0; }
+.manual code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.manual textarea {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
 .listen-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .listen-row input[type="text"] {
   flex: 1 1 220px;

@@ -18,6 +18,7 @@ from .listener import listen
 from .login import NeteaseLogin
 from .netease import (
     get_netease_account,
+    get_netease_csrf,
     get_netease_song,
     get_song_comments,
     get_song_lyrics,
@@ -126,7 +127,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.5.2")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -200,6 +201,12 @@ class MusicCardPlugin(Star):
             ("page/status", self._api_status, ["GET"], "听歌：状态与记录"),
             ("page/login/qr", self._api_login_qr, ["POST"], "听歌：生成登录二维码"),
             ("page/login/poll", self._api_login_poll, ["POST"], "听歌：查询扫码状态"),
+            (
+                "page/login/cookie",
+                self._api_login_cookie,
+                ["POST"],
+                "听歌：Cookie 登录",
+            ),
             ("page/listen", self._api_listen, ["POST"], "听歌：手动听一首"),
             ("page/logout", self._api_logout, ["POST"], "听歌：退出登录"),
         ]
@@ -302,6 +309,39 @@ class MusicCardPlugin(Star):
         if result["state"] == "expired":
             await self.login.close()
         return json_response({"state": result["state"], "message": result["message"]})
+
+    async def _api_login_cookie(self):
+        """用浏览器复制的 Cookie 登录。"""
+        from astrbot.api.web import error_response, json_response, request
+
+        try:
+            payload = await request.json(default={})
+        except Exception:
+            payload = {}
+        cookie = str((payload or {}).get("cookie") or "").strip()
+        if not cookie:
+            return error_response("请粘贴 Cookie")
+        if "MUSIC_U=" not in cookie:
+            cookie = f"MUSIC_U={cookie}"
+        if "__csrf" not in cookie:
+            csrf = await get_netease_csrf(cookie)
+            if csrf:
+                cookie = f"{cookie}; __csrf={csrf}"
+        account = await get_netease_account(cookie)
+        if not account:
+            return error_response("Cookie 无效或已过期，请重新复制")
+        self.store.save_auth(
+            {
+                "cookie": cookie,
+                "name": account.get("name", ""),
+                "avatar": account.get("avatar", ""),
+                "userId": account.get("userId", ""),
+                "at": time.time(),
+            }
+        )
+        self._account = account
+        self._account_at = time.time()
+        return json_response({"ok": True, "account": account})
 
     async def _api_listen(self):
         """手动听一首歌。"""

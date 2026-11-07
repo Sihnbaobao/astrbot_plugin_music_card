@@ -264,6 +264,25 @@ async function listenOnce() {
   }
 }
 
+async function cookieLogin() {
+  const cookie = el("cookieInput").value.trim();
+  if (!cookie) {
+    setNotice("先粘贴 Cookie", "warn");
+    return;
+  }
+  el("cookieBtn").disabled = true;
+  try {
+    await bridge.apiPost("page/login/cookie", { cookie: cookie });
+    setNotice("Cookie 登录成功", "ok");
+    el("cookieInput").value = "";
+    await refresh();
+  } catch (error) {
+    setNotice("Cookie 登录失败：" + error.message, "error");
+  } finally {
+    el("cookieBtn").disabled = false;
+  }
+}
+
 async function logout() {
   try {
     await bridge.apiPost("page/logout", {});
@@ -281,6 +300,7 @@ function bind() {
   el("refreshBtn").addEventListener("click", refresh);
   el("loginBtn").addEventListener("click", startLogin);
   el("logoutBtn").addEventListener("click", logout);
+  el("cookieBtn").addEventListener("click", cookieLogin);
   el("listenBtn").addEventListener("click", listenOnce);
   el("queryInput").addEventListener("keydown", function (event) {
     if (event.key === "Enter") listenOnce();
