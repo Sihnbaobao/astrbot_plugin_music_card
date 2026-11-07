@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.13.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.14.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -920,7 +920,8 @@ class MusicCardPlugin(Star):
     async def listen_music(self, event: AstrMessageEvent, query: str = ""):
         """真的去网易云听一首歌，返回听后感；比 listen_song 更完整。
 
-        想听歌、或对方让你去听时调用。query 留空按人格喜好自己挑；填歌名/歌手就听指定的。
+        你自己突然想听歌时也可以直接调用，不用等对方开口；对方让你去听时也用它。
+        query 留空按人格喜好自己挑；填歌名/歌手就听指定的。
         听完会把听后感返回给你，你可以直接用它回复对方。
 
         Args:
