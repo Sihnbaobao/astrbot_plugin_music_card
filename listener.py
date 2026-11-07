@@ -4,6 +4,7 @@
 听后感由聊天模型自己说。
 """
 
+import random
 import re
 from datetime import datetime
 
@@ -98,12 +99,14 @@ async def _current_provider(context):
     return str(provider.meta().id) if provider else ""
 
 
-async def resolve_song(query="", song_id=""):
+async def resolve_song(query="", song_id="", *, randomize=False, exclude_ids=()):
     """把歌曲 ID 或搜索词解析成一首歌。
 
     Args:
         query: 搜索词，可以是歌名或歌手名。
         song_id: 网易云歌曲 ID，优先使用。
+        randomize: 按歌手搜到多首时是否随机挑一首。
+        exclude_ids: 随机时尽量避开的歌曲 ID（最近听过的）。
 
     Returns:
         歌曲信息字典；没找到时返回 None。
@@ -115,11 +118,17 @@ async def resolve_song(query="", song_id=""):
     if not query:
         return None
     results = await search_netease_candidates(query, limit=1)
-    if not results:
-        results = await search_netease_artist_songs(query, limit=1)
-    if not results:
+    if results:
+        return await get_netease_song(results[0]["id"])
+    artist_songs = await search_netease_artist_songs(query, limit=10)
+    if not artist_songs:
         return None
-    return await get_netease_song(results[0]["id"])
+    excluded = {str(item) for item in exclude_ids}
+    pool = [item for item in artist_songs if str(item.get("id")) not in excluded]
+    if not pool:
+        pool = artist_songs
+    chosen = random.choice(pool) if randomize else pool[0]
+    return await get_netease_song(chosen["id"])
 
 
 async def listen(
@@ -153,7 +162,8 @@ async def listen(
     Raises:
         ValueError: 没找到歌或没有可用模型。
     """
-    song = await resolve_song(query, song_id)
+    recent_ids = [str(item.get("song_id") or "") for item in store.recent_listened(5)]
+    song = await resolve_song(query, song_id, randomize=True, exclude_ids=recent_ids)
     if not song:
         raise ValueError("没找到这首歌")
     lyrics = await get_song_lyrics(song["id"])

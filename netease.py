@@ -5,6 +5,8 @@ import httpx
 
 from astrbot.core import logger
 
+from .weapi import weapi
+
 _ARTIST_SPLIT_RE = re.compile(
     r"\s*(?:/|、|,|，|&|\b(?:feat|ft|featuring)\.?\s+)\s*",
     re.IGNORECASE,
@@ -563,26 +565,31 @@ async def post_song_comment(song_id, content, cookie):
     if not content:
         return False, "评论内容为空"
     if not cookie:
-        return False, "没有登录，先扫码登录"
+        return False, "没有登录，先在插件页用 Cookie 登录"
     csrf = _cookie_value(cookie, "__csrf")
     if not csrf:
-        return False, "登录信息缺少 __csrf，请重新扫码"
+        return False, "登录信息缺少 __csrf，请重新复制 Cookie"
+    comment_data = {
+        "threadId": f"R_SO_4_{song_id}",
+        "content": content,
+        "csrf_token": csrf,
+    }
     try:
         async with httpx.AsyncClient(
             timeout=10,
             headers={
-                "User-Agent": "Mozilla/5.0",
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
                 "Referer": f"https://music.163.com/song?id={song_id}",
                 "Cookie": cookie,
             },
         ) as client:
             response = await client.post(
-                "https://music.163.com/api/comment",
-                data={
-                    "threadId": f"R_SO_4_{song_id}",
-                    "content": content,
-                    "csrf_token": csrf,
-                },
+                "https://music.163.com/weapi/resource/comments/add",
+                data=weapi(comment_data),
             )
             response.raise_for_status()
             payload = response.json()
