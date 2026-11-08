@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -594,10 +594,11 @@ class MusicCardPlugin(Star):
         except Exception as exc:
             logger.warning(f"[music-card] 分享歌曲听歌失败：{exc}")
             return
+        text = str(entry.get("reaction") or "").strip()
+        if not text:
+            text = f"刚听了《{entry.get('name', '')}》，还不错。"
         try:
-            await event.send(
-                MessageChain([Plain(f"听完《{entry['name']}》：{entry['reaction']}")])
-            )
+            await event.send(MessageChain([Plain(text)]))
         except Exception as exc:
             logger.warning(f"[music-card] 听后感发送失败：{exc}")
 
@@ -956,8 +957,7 @@ class MusicCardPlugin(Star):
             logger.warning(f"[music-card] 聊天听歌失败：{exc}")
             return f"没听成：{exc}"
         lines = [
-            f"听了《{entry['name']}》（{entry['artist']}）。",
-            f"听后感：{entry['reaction']}",
+            f"刚听了《{entry['name']}》（{entry['artist']}）：{entry['reaction']}",
         ]
         if entry.get("saved"):
             lines.append(f"已收藏并加入歌单「{entry.get('playlist', '')}」。")
