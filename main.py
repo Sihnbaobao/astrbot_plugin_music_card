@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.5")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.6")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -594,9 +594,11 @@ class MusicCardPlugin(Star):
         except Exception as exc:
             logger.warning(f"[music-card] 分享歌曲听歌失败：{exc}")
             return
+        if not entry.get("like"):
+            return
         text = str(entry.get("reaction") or "").strip()
         if not text:
-            text = f"刚听了《{entry.get('name', '')}》，还不错。"
+            return
         try:
             await event.send(MessageChain([Plain(text)]))
         except Exception as exc:
