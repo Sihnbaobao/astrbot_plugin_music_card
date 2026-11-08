@@ -73,6 +73,18 @@ def _extract_urls(text):
     ]
 
 
+def _strip_urls(text):
+    """Remove HTTP(S) URLs from message text.
+
+    Args:
+        text: Message text to clean.
+
+    Returns:
+        Remaining text without URLs.
+    """
+    return re.sub(r"https?://[^\s<>]+", "", text or "", flags=re.IGNORECASE).strip()
+
+
 def _music_domain(url):
     """Return the supported music domain for a URL.
 
@@ -132,7 +144,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.6")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.7")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -604,6 +616,24 @@ class MusicCardPlugin(Star):
         except Exception as exc:
             logger.warning(f"[music-card] 听后感发送失败：{exc}")
 
+    async def _after_card(self, event, song_id):
+        """Let the model answer a shared song when the sender said something.
+
+        Args:
+            event: Current message event.
+            song_id: Numeric NetEase song ID.
+        """
+        extra = _strip_urls(event.message_str or "")
+        if extra:
+            song = await get_netease_song(song_id)
+            name = song["name"] if song else ""
+            artist = song["artist"] if song else ""
+            event.message_str = f"有人分享了《{name}》（{artist}），说：{extra}"
+            event.message_obj.message = []
+            return
+        await self._listen_shared(event, song_id)
+        event.stop_event()
+
     async def _session_persona_text(self, event):
         """Resolve the persona prompt used in the current chat session.
 
@@ -747,8 +777,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, song_id)
             if ok:
-                await self._listen_shared(event, song_id)
-                event.stop_event()
+                await self._after_card(event, song_id)
                 return
             logger.warning(f"网易云链接转卡失败:{reason},继续尝试其他链接")
 
@@ -771,8 +800,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, ne["id"])
             if ok:
-                await self._listen_shared(event, ne["id"])
-                event.stop_event()
+                await self._after_card(event, ne["id"])
                 return
             logger.warning(f"QQ音乐转卡失败:{reason},继续尝试其他链接")
 
@@ -795,8 +823,7 @@ class MusicCardPlugin(Star):
                 continue
             ok, reason = await self._netease_card(event, ne["id"])
             if ok:
-                await self._listen_shared(event, ne["id"])
-                event.stop_event()
+                await self._after_card(event, ne["id"])
                 return
             logger.warning(f"酷狗转卡失败:{reason},继续尝试其他链接")
 
