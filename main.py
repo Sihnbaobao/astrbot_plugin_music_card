@@ -132,7 +132,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.4")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.5")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -805,7 +805,6 @@ class MusicCardPlugin(Star):
         self, event: AstrMessageEvent, song_name: str, artist: str = ""
     ):
         """想找歌、确认歌名或歌手时查一下；对不上会按歌手搜。
-        只提搜到的，没有就说没找到。
 
         Args:
             song_name(string): 歌名，或歌手名。
