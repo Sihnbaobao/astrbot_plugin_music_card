@@ -100,9 +100,7 @@ def build_prompt(song, lyrics, comments, categories=()):
     lines.append("")
     category_text = "、".join(str(item) for item in categories if item) or "其他"
     lines.append(
-        "用你的人格写一句听后感，20-60 字；用第一人称“我”说话，"
-        "不要用名字或第三人称自称，不要用省略号断句，"
-        "只说这首歌，不要扯到别的话题。"
+        "用你平时的说话方式写一句听后感；"
         f"再从这些分类里挑一个最合适的：{category_text}。"
     )
     lines.append(
