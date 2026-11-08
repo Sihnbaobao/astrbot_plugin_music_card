@@ -100,7 +100,7 @@ def build_prompt(song, lyrics, comments, categories=()):
     lines.append("")
     category_text = "、".join(str(item) for item in categories if item) or "其他"
     lines.append(
-        "用你平时的说话方式写一句听后感；"
+        "用你平时的说话方式写一句听后感，最多 60 字；"
         f"再从这些分类里挑一个最合适的：{category_text}。"
     )
     lines.append(
@@ -183,7 +183,7 @@ async def generate_reply(
         f"歌曲：{song_name}\n"
         f"你的评论：{my_comment}\n"
         f"对方（{reply_user}）：{reply_content}\n\n"
-        "用你的人格写一句简短回复，5-50 字，只写回复本身，不要解释设定、不要列点。"
+        "用你的人格写一句简短回复，最多 60 字，只写回复本身，不要解释设定、不要列点。"
     )
     response = await context.llm_generate(
         chat_provider_id=provider,
