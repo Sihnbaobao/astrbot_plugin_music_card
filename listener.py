@@ -9,7 +9,7 @@ import random
 import re
 from datetime import datetime
 
-from astrbot.core import logger
+from astrbot.api import logger
 
 from .netease import (
     add_song_to_playlist,

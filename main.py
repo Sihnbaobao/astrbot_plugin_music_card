@@ -8,10 +8,11 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from astrbot.api import AstrBotConfig
+from astrbot.core.agent.message import TextPart
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Music, Plain
 from astrbot.api.star import Context, Star, register
-from astrbot.core import logger
+from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .kugou import parse_kugou_card
@@ -144,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.7")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.8")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -196,8 +197,10 @@ class MusicCardPlugin(Star):
             )
         if not hints:
             return
-        hint = "\n\n[音乐] " + " ".join(hints)
-        req.system_prompt = str(getattr(req, "system_prompt", "") or "") + hint
+        hint = "[音乐] " + " ".join(hints)
+        parts = list(getattr(req, "extra_user_content_parts", None) or [])
+        parts.append(TextPart(text=hint).mark_as_temp())
+        req.extra_user_content_parts = parts
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
