@@ -1,6 +1,7 @@
-## v1.15.8
+## v1.16.0
 
-- 按插件市场规范统一 logger 导入，并把音乐提示改为临时用户内容，避免破坏 system prompt 前缀缓存。
+- 新增自主听歌时钟：到设定时间先问人格“想不想听”，想听才去听；喜欢的照常收藏/进歌单
+- 配置 AUTO_LISTEN / AUTO_LISTEN_TIMES / AUTO_LISTEN_UMO
 
 ## v1.15.7
 

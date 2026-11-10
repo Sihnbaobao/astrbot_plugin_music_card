@@ -95,7 +95,9 @@ function renderListened(items) {
         ? '<span class="tag ok">已评论</span>'
         : item.source === "chat"
           ? '<span class="tag">聊天里听的</span>'
-          : "";
+          : item.source === "auto"
+            ? '<span class="tag">自己听的</span>'
+            : "";
       const score = item.score ? '<span class="tag">' + item.score + " 分</span>" : "";
       const category = item.category
         ? '<span class="tag">' + escapeHtml(item.category) + "</span>"

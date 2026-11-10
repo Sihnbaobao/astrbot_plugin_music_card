@@ -88,5 +88,23 @@
     "type": "bool",
     "default": true,
     "hint": "有人分享音乐链接时，自动听一遍并回一句听后感；卡片则由模型决定是否听。"
+  },
+  "AUTO_LISTEN": {
+    "description": "自己定时听歌",
+    "type": "bool",
+    "default": false,
+    "hint": "到点先问人格想不想听；想听才去听。"
+  },
+  "AUTO_LISTEN_TIMES": {
+    "description": "想听歌的时间点",
+    "type": "string",
+    "default": "10:00,15:00,21:00",
+    "hint": "逗号分隔的 24 小时时间，如 10:00,15:00,21:00。"
+  },
+  "AUTO_LISTEN_UMO": {
+    "description": "听歌后推送到",
+    "type": "string",
+    "default": "",
+    "hint": "会话 UMO，留空只记录不推送。"
   }
 }

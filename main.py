@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import time
 from datetime import datetime, timedelta
@@ -8,15 +9,14 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from astrbot.api import AstrBotConfig
-from astrbot.core.agent.message import TextPart
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Music, Plain
 from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+from astrbot.core import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .kugou import parse_kugou_card
-from .listener import generate_reply, listen
+from .listener import generate_reply, listen, persona_prompt
 from .netease import (
     add_song_to_playlist,
     find_or_create_playlist,
@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.15.8")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.16.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -157,6 +157,8 @@ class MusicCardPlugin(Star):
         self._account = {}
         self._account_at = 0.0
         self._reply_task = None
+        self._auto_task = None
+        self._auto_done = set()
         self._register_web_apis()
 
     async def initialize(self) -> None:
@@ -164,6 +166,9 @@ class MusicCardPlugin(Star):
         if self._reply_task is None:
             self._reply_task = asyncio.create_task(self._reply_loop())
             logger.info("[music-card] 回复检查已启动")
+        if self._auto_task is None:
+            self._auto_task = asyncio.create_task(self._auto_listen_loop())
+            logger.info("[music-card] 自主听歌时钟已启动")
 
     async def terminate(self) -> None:
         """插件停用时取消后台任务。"""
@@ -174,6 +179,13 @@ class MusicCardPlugin(Star):
             except asyncio.CancelledError:
                 pass
             self._reply_task = None
+        if self._auto_task is not None:
+            self._auto_task.cancel()
+            try:
+                await self._auto_task
+            except asyncio.CancelledError:
+                pass
+            self._auto_task = None
 
     @filter.on_llm_request()
     async def on_llm_request(self, event, req):
@@ -197,10 +209,8 @@ class MusicCardPlugin(Star):
             )
         if not hints:
             return
-        hint = "[音乐] " + " ".join(hints)
-        parts = list(getattr(req, "extra_user_content_parts", None) or [])
-        parts.append(TextPart(text=hint).mark_as_temp())
-        req.extra_user_content_parts = parts
+        hint = "\n\n[音乐] " + " ".join(hints)
+        req.system_prompt = str(getattr(req, "system_prompt", "") or "") + hint
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
@@ -518,6 +528,113 @@ class MusicCardPlugin(Star):
                                 f"[music-card] 已回复 {reply.get('user', '')} 的评论"
                             )
                 self.store.add_reply(entry)
+
+    # ── 自主听歌 ──
+
+    async def _auto_listen_loop(self) -> None:
+        """Check the configured times and let the persona decide to listen."""
+        while True:
+            try:
+                if bool(self._cfg("AUTO_LISTEN", False)):
+                    await self._maybe_auto_listen()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(f"[music-card] 自主听歌失败：{exc}")
+            await asyncio.sleep(30)
+
+    async def _maybe_auto_listen(self) -> None:
+        """Ask the persona whether it wants to listen, and listen if yes."""
+        now = datetime.now()
+        clock = now.strftime("%H:%M")
+        raw_times = str(self._cfg("AUTO_LISTEN_TIMES", "10:00,15:00,21:00"))
+        times = [
+            item.strip()
+            for item in raw_times.replace("，", ",").split(",")
+            if item.strip()
+        ]
+        if clock not in times:
+            return
+        key = f"{now.date()}-{clock}"
+        if key in self._auto_done:
+            return
+        self._auto_done = {
+            item for item in self._auto_done if item.startswith(str(now.date()))
+        }
+        self._auto_done.add(key)
+        umo = str(self._cfg("AUTO_LISTEN_UMO", "")).strip()
+        persona_text = ""
+        if umo:
+            try:
+                persona = await self.context.persona_manager.get_default_persona_v3(umo)
+                persona_text = str((persona or {}).get("prompt") or "")
+            except Exception:
+                persona_text = ""
+        if not persona_text:
+            persona_text = persona_prompt(
+                self.context, str(self._cfg("PERSONA_ID", ""))
+            )
+        provider = str(self._cfg("PROVIDER_ID", "")).strip()
+        if not provider:
+            try:
+                current = await self.context.get_using_provider_async()
+                provider = str(current.meta().id) if current else ""
+            except Exception:
+                provider = ""
+        if not provider:
+            return
+        logger.info(f"[music-card] 自主听歌：问人格 {clock} 想不想听")
+        response = await self.context.llm_generate(
+            chat_provider_id=provider,
+            prompt=(
+                f"现在是 {clock}。你想听歌吗？想听什么？\n"
+                '只输出 JSON：{"want": true或false, "query": "歌名或歌手"}。'
+            ),
+            system_prompt=persona_text or None,
+            max_tokens=80,
+        )
+        raw = getattr(response, "completion_text", "") or ""
+        start, end = raw.find("{"), raw.rfind("}")
+        if start == -1 or end <= start:
+            return
+        try:
+            decision = json.loads(raw[start : end + 1])
+        except ValueError:
+            return
+        if not decision.get("want"):
+            logger.info("[music-card] 自主听歌：这次不想听")
+            return
+        query = str(decision.get("query") or "").strip()
+        logger.info(f"[music-card] 自主听歌：想听，query={query or '（自己挑）'}")
+        raw_categories = str(self._cfg("PLAYLIST_CATEGORIES", "深夜,通勤,元气,emo"))
+        categories = [
+            item.strip()
+            for item in raw_categories.replace("，", ",").split(",")
+            if item.strip()
+        ]
+        entry = await listen(
+            self.context,
+            self.store,
+            query=query,
+            persona_id=str(self._cfg("PERSONA_ID", "")),
+            persona_extra=str(self._cfg("PERSONA_EXTRA", "")),
+            provider_id=provider,
+            persona_text=persona_text,
+            persona_pick=not query,
+            fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
+            source="auto",
+            auto_save=bool(self._cfg("AUTO_SAVE", False)),
+            min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
+            playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
+            categories=categories,
+        )
+        if umo and entry.get("reaction"):
+            try:
+                await self.context.send_message(
+                    umo, MessageChain([Plain(entry["reaction"])])
+                )
+            except Exception as exc:
+                logger.warning(f"[music-card] 自主听歌推送失败：{exc}")
 
     # ── 消息发送 ──
 
