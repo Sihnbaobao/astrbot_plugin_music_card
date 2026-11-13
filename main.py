@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.21.4")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.22.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -159,6 +159,7 @@ class MusicCardPlugin(Star):
         self._reply_task = None
         self._auto_task = None
         self._auto_done = set()
+        self._last_umo = ""
         self._register_web_apis()
 
     async def initialize(self) -> None:
@@ -230,6 +231,7 @@ class MusicCardPlugin(Star):
             event: Current message event.
         """
         try:
+            self._last_umo = str(getattr(event, "unified_msg_origin", "") or "")
             result = event.get_result()
             if result is None:
                 return
@@ -675,11 +677,14 @@ class MusicCardPlugin(Star):
             item for item in self._auto_done if item.startswith(str(now.date()))
         }
         self._auto_done.add(key)
-        umo = str(self._cfg("AUTO_LISTEN_UMO", "")).strip()
+        configured_umo = str(self._cfg("AUTO_LISTEN_UMO", "")).strip()
+        context_umo = configured_umo or self._last_umo
         persona_text = ""
-        if umo:
+        if context_umo:
             try:
-                persona = await self.context.persona_manager.get_default_persona_v3(umo)
+                persona = await self.context.persona_manager.get_default_persona_v3(
+                    context_umo
+                )
                 persona_text = str((persona or {}).get("prompt") or "")
             except Exception:
                 persona_text = ""
@@ -703,16 +708,47 @@ class MusicCardPlugin(Star):
             if item.get("name")
         ]
         memory_text = "你最近听过：" + "、".join(recent_names) if recent_names else ""
+        chat_text = ""
+        if context_umo:
+            try:
+                cid = await self.context.conversation_manager.get_curr_conversation_id(
+                    context_umo
+                )
+                if cid:
+                    conversation = (
+                        await self.context.conversation_manager.get_conversation(
+                            context_umo, cid
+                        )
+                    )
+                    history = (
+                        json.loads(conversation.history)
+                        if conversation and conversation.history
+                        else []
+                    )
+                    lines = []
+                    for item in history[-6:]:
+                        role = "对方" if item.get("role") == "user" else "你"
+                        content = (
+                            str(item.get("content") or "").strip().replace("\n", " ")
+                        )
+                        if content:
+                            lines.append(f"{role}：{content[:80]}")
+                    if lines:
+                        chat_text = "最近聊到：\n" + "\n".join(lines)
+            except Exception as exc:
+                logger.debug(f"[music-card] 读取聊天记录失败：{exc}")
+        parts = [f"现在是 {clock}。"]
+        if memory_text:
+            parts.append(memory_text)
+        if chat_text:
+            parts.append(chat_text)
+        parts.append('只输出 JSON：{"want": true或false, "query": "歌名或歌手"}。')
         logger.info(f"[music-card] 自主听歌：问人格 {clock} 想不想听")
         response = await self.context.llm_generate(
             chat_provider_id=provider,
-            prompt=(
-                f"现在是 {clock}。\n"
-                + (memory_text + "\n\n" if memory_text else "\n")
-                + '只输出 JSON：{"want": true或false, "query": "歌名或歌手"}。'
-            ),
+            prompt="\n\n".join(parts),
             system_prompt=persona_text or None,
-            max_tokens=120,
+            max_tokens=160,
         )
         raw = getattr(response, "completion_text", "") or ""
         start, end = raw.find("{"), raw.rfind("}")
@@ -749,10 +785,10 @@ class MusicCardPlugin(Star):
             playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
             categories=categories,
         )
-        if umo and entry.get("reaction"):
+        if configured_umo and entry.get("reaction"):
             try:
                 await self.context.send_message(
-                    umo, MessageChain([Plain(entry["reaction"])])
+                    configured_umo, MessageChain([Plain(entry["reaction"])])
                 )
             except Exception as exc:
                 logger.warning(f"[music-card] 自主听歌推送失败：{exc}")
