@@ -88,14 +88,15 @@ class MusicStore:
         """
         return self._recent(self.listened_path, limit)
 
-    def listened_counts(self, limit: int = 200) -> list[dict]:
+    def listened_counts(self, limit: int = 200, sort: str = "default") -> list[dict]:
         """按听歌次数聚合歌曲。
 
         Args:
             limit: 最多返回多少首。
+            sort: default 按最近听、count_desc 次数从多到少、count_asc 从少到多。
 
         Returns:
-            包含 song_id、name、artist、count、last_at 的列表，按次数倒序。
+            包含 song_id、name、artist、count、last_at 的列表。
         """
         counts = {}
         for item in self._read(self.listened_path):
@@ -118,11 +119,12 @@ class MusicStore:
                 entry["last_at"] = at
                 entry["name"] = str(item.get("name") or entry["name"])
                 entry["artist"] = str(item.get("artist") or entry["artist"])
-        items = sorted(
-            counts.values(),
-            key=lambda item: (item["count"], item["last_at"]),
-            reverse=True,
-        )
+        items = list(counts.values())
+        items.sort(key=lambda item: item["last_at"], reverse=True)
+        if sort == "count_desc":
+            items.sort(key=lambda item: item["count"], reverse=True)
+        elif sort == "count_asc":
+            items.sort(key=lambda item: item["count"])
         return items[: max(1, min(int(limit or 200), 1000))]
 
     # ── 评论记录 ──

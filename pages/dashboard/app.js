@@ -212,11 +212,11 @@ function renderRecommendations(items) {
 }
 
 const pagerState = {
-  listened: { page: 1, size: 8, pages: 1, total: 0 },
-  listened_counts: { page: 1, size: 8, pages: 1, total: 0 },
-  comments: { page: 1, size: 8, pages: 1, total: 0 },
-  replies: { page: 1, size: 8, pages: 1, total: 0 },
-  recommendations: { page: 1, size: 8, pages: 1, total: 0 },
+  listened: { page: 1, size: 10, pages: 1, total: 0 },
+  listened_counts: { page: 1, size: 10, pages: 1, total: 0 },
+  comments: { page: 1, size: 10, pages: 1, total: 0 },
+  replies: { page: 1, size: 10, pages: 1, total: 0 },
+  recommendations: { page: 1, size: 10, pages: 1, total: 0 },
 };
 
 function initPagers() {
@@ -252,11 +252,11 @@ async function loadList(kind, page) {
   if (!state) return;
   if (page) state.page = page;
   try {
-    const data = await bridge.apiGet("page/list", {
-      kind: kind,
-      page: state.page,
-      size: state.size,
-    });
+    const params = { kind: kind, page: state.page, size: state.size };
+    if (kind === "listened_counts") {
+      params.sort = el("listenedCountsSort").value || "default";
+    }
+    const data = await bridge.apiGet("page/list", params);
     state.page = data.page || 1;
     state.pages = data.pages || 1;
     state.total = data.total || 0;
@@ -494,6 +494,9 @@ function bind() {
   el("cookieBtn").addEventListener("click", cookieLogin);
   el("savePersonaBtn").addEventListener("click", savePersona);
   el("saveReplyBtn").addEventListener("click", saveReply);
+  el("listenedCountsSort").addEventListener("change", function () {
+    loadList("listened_counts", 1);
+  });
   el("logoutBtn").addEventListener("click", logout);
   el("switchBtn").addEventListener("click", function () {
     el("loginBox").hidden = false;

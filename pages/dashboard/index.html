@@ -97,6 +97,13 @@
           <h2>听过的歌</h2>
           <span class="hint" id="listenedCountsMeta"></span>
         </div>
+        <div class="sort-row">
+          <select id="listenedCountsSort">
+            <option value="default">默认排序（最近听）</option>
+            <option value="count_desc">次数从多到少</option>
+            <option value="count_asc">次数从少到多</option>
+          </select>
+        </div>
         <ul class="records" id="listenedCountsList"></ul>
         <div class="pager" data-kind="listened_counts"></div>
       </section>
