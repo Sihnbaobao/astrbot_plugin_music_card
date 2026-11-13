@@ -28,6 +28,7 @@ class MusicStore:
         self.listened_path = self.root / "listened.jsonl"
         self.comments_path = self.root / "comments.jsonl"
         self.replies_path = self.root / "replies.jsonl"
+        self.recommendations_path = self.root / "recommendations.json"
 
     # ── 登录态 ──
 
@@ -180,6 +181,72 @@ class MusicStore:
             for item in self._read(self.replies_path)
             if item.get("my_reply") and str(item.get("at", "")).startswith(today)
         )
+
+    # ── 推荐记录 ──
+
+    def record_recommendation(self, song, chat=""):
+        """记录一次歌曲推荐。
+
+        Args:
+            song: 推荐出去的歌名。
+            chat: 发生推荐的会话标识，可为空。
+        """
+        song = str(song or "").strip()
+        if not song:
+            return
+        data = self._read_json(self.recommendations_path)
+        entry = data.get(song)
+        if not isinstance(entry, dict):
+            entry = {"count": 0}
+        entry["count"] = int(entry.get("count") or 0) + 1
+        entry["last_at"] = datetime.now().isoformat(timespec="seconds")
+        entry["last_chat"] = str(chat or "")
+        data[song] = entry
+        try:
+            self.recommendations_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception:
+            pass
+
+    def recent_recommendations(self, limit=50):
+        """按推荐次数倒序返回记录。
+
+        Args:
+            limit: 最多返回多少条。
+
+        Returns:
+            包含 song、count、last_at 的列表。
+        """
+        data = self._read_json(self.recommendations_path)
+        items = [
+            {"song": song, **entry}
+            for song, entry in data.items()
+            if isinstance(entry, dict)
+        ]
+        items.sort(
+            key=lambda item: (
+                int(item.get("count") or 0),
+                str(item.get("last_at") or ""),
+            ),
+            reverse=True,
+        )
+        return items[: max(1, min(int(limit or 50), 200))]
+
+    def _read_json(self, path):
+        """读取 JSON 文件，损坏时返回空字典。
+
+        Args:
+            path: JSON 文件路径。
+
+        Returns:
+            字典内容。
+        """
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
 
     # ── 内部读写 ──
 

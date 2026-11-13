@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.16.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.17.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -218,6 +218,38 @@ class MusicCardPlugin(Star):
             return
         hint = "\n\n[音乐] " + " ".join(hints)
         req.system_prompt = str(getattr(req, "system_prompt", "") or "") + hint
+
+    @filter.on_decorating_result()
+    async def on_decorating_result(self, event: AstrMessageEvent):
+        """Record songs the persona recommends in outgoing replies.
+
+        Args:
+            event: Current message event.
+        """
+        try:
+            result = event.get_result()
+            if result is None:
+                return
+            text = result.get_plain_text()
+            if not text:
+                return
+            songs = re.findall(r"《([^》]{1,30})》", text)
+            if not songs:
+                return
+            state = self._event_state(event)
+            if not state.get("search_count") and not re.search(
+                r"(推荐|安利|听听|去听|好听|可以听|试试|自己听|听一下)", text
+            ):
+                return
+            chat = (
+                event.get_sender_id()
+                if event.is_private_chat()
+                else event.get_group_id()
+            )
+            for song in dict.fromkeys(songs):
+                self.store.record_recommendation(song.strip(), str(chat or ""))
+        except Exception as exc:
+            logger.warning(f"[music-card] 推荐记录失败：{exc}")
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
@@ -308,6 +340,7 @@ class MusicCardPlugin(Star):
                 "persona_id": str(self._cfg("PERSONA_ID", "")),
                 "persona_extra": str(self._cfg("PERSONA_EXTRA", "")),
                 "replies": self.store.recent_replies(30),
+                "recommendations": self.store.recent_recommendations(50),
                 "auto_reply": bool(self._cfg("AUTO_REPLY", False)),
                 "reply_watch": bool(self._cfg("REPLY_WATCH", True)),
                 "reply_interval": int(self._cfg("REPLY_INTERVAL_MINUTES", 30)),

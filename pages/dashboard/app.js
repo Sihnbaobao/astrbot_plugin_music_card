@@ -159,6 +159,32 @@ function renderComments(items) {
     .join("");
 }
 
+function renderRecommendations(items) {
+  const list = el("recsList");
+  if (!items || !items.length) {
+    list.innerHTML = '<li class="empty">还没有推荐记录。</li>';
+    el("recsMeta").textContent = "";
+    return;
+  }
+  el("recsMeta").textContent = "共 " + items.length + " 首";
+  list.innerHTML = items
+    .map(function (item) {
+      return (
+        "<li>" +
+        '<div class="rec-main"><strong>' +
+        escapeHtml(item.song || "") +
+        "</strong><span>推荐 " +
+        (item.count || 0) +
+        " 次</span></div>" +
+        '<div class="rec-side"><span>' +
+        formatAt(item.last_at) +
+        "</span></div>" +
+        "</li>"
+      );
+    })
+    .join("");
+}
+
 function setPersonaForm(data) {
   const select = el("personaSelect");
   const personaId = data.persona_id || "";
@@ -260,6 +286,7 @@ async function refresh() {
     renderListened(data.listened || []);
     renderComments(data.comments || []);
     renderReplies(data.replies || []);
+    renderRecommendations(data.recommendations || []);
     el("autoReply").checked = !!data.auto_reply;
     el("replyHint").textContent =
       "每 " + (data.reply_interval || 30) + " 分钟检查一次";
