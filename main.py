@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.16.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.16.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -202,6 +202,13 @@ class MusicCardPlugin(Star):
                 "聊到推荐或找歌时，先 search_songs 确认一下；"
                 "只提真的搜到的歌，没搜到就说没找到，别凭印象编歌名。"
             )
+            recent_names = [
+                str(item.get("name") or "").strip()
+                for item in self.store.recent_listened(5)
+            ]
+            recent_text = "、".join(name for name in recent_names if name)
+            if recent_text:
+                hints.append(f"你最近在听：{recent_text}；推荐时换着来，别总推同一首。")
         if re.search(r"(听歌|听会儿歌|去听|听听歌|放首歌|听一首)", text):
             hints.append(
                 "想听歌的时候，直接 listen_music 去听；"
