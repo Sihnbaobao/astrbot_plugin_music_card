@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.18.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.18.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -282,11 +282,7 @@ class MusicCardPlugin(Star):
             parts.append(detail)
         if not parts:
             return ""
-        return (
-            "你之前推荐过："
-            + "；".join(parts)
-            + "。聊到相关话题时可以自然想起来，不用硬提。"
-        )
+        return "你推过这些歌：" + "；".join(parts) + "。"
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
