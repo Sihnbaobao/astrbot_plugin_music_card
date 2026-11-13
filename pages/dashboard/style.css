@@ -162,13 +162,18 @@ body {
 .listen-result { margin-top: 10px; padding: 12px; border-radius: 8px; background: var(--bg); }
 .listen-result p { margin: 6px 0 0; }
 
-.records { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.records { list-style: none; margin: 0; padding: 0 4px 0 0; display: grid; gap: 10px; max-height: 340px; overflow-y: auto; }
 .records li {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
 }
 .records li.empty { color: var(--muted); border-style: dashed; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.pager .btn { padding: 4px 10px; font-size: 12px; }
+.pager-info { color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+.pager-input { width: 52px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); text-align: center; font-size: 12px; }
+.pager .btn:disabled { opacity: 0.4; cursor: default; }
 .rec-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .rec-main span { color: var(--muted); font-size: 12px; }
 .rec-side { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 2px; }

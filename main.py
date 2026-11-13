@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.18.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.19.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -323,6 +323,7 @@ class MusicCardPlugin(Star):
         """注册插件页用的接口。"""
         routes = [
             ("page/status", self._api_status, ["GET"], "听歌：状态与记录"),
+            ("page/list", self._api_list, ["GET"], "听歌：分页列表"),
             ("page/personas", self._api_personas, ["GET"], "听歌：人格列表"),
             ("page/settings", self._api_settings, ["POST"], "听歌：保存人格设置"),
             (
@@ -454,6 +455,42 @@ class MusicCardPlugin(Star):
             logger.warning(f"[music-card] 听歌失败：{exc}")
             return error_response(str(exc))
         return json_response({"entry": entry})
+
+    async def _api_list(self):
+        """分页返回听歌、评论、回复或推荐列表。"""
+        from astrbot.api.web import json_response, request
+
+        kind = str(request.query.get("kind", "") or "").strip()
+        try:
+            page = max(1, int(request.query.get("page", 1) or 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            size = max(1, min(50, int(request.query.get("size", 8) or 8)))
+        except (TypeError, ValueError):
+            size = 8
+        if kind == "listened":
+            items = self.store.recent_listened(500)
+        elif kind == "comments":
+            items = self.store.recent_comments(500)
+        elif kind == "replies":
+            items = self.store.recent_replies(200)
+        elif kind == "recommendations":
+            items = self.store.recent_recommendations(200)
+        else:
+            return json_response({"items": [], "total": 0, "page": 1, "pages": 1})
+        total = len(items)
+        pages = max(1, (total + size - 1) // size)
+        page = min(page, pages)
+        start = (page - 1) * size
+        return json_response(
+            {
+                "items": items[start : start + size],
+                "total": total,
+                "page": page,
+                "pages": pages,
+            }
+        )
 
     async def _api_personas(self):
         """可选的人格列表。"""

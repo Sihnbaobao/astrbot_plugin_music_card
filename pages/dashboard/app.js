@@ -163,10 +163,8 @@ function renderRecommendations(items) {
   const list = el("recsList");
   if (!items || !items.length) {
     list.innerHTML = '<li class="empty">还没有推荐记录。</li>';
-    el("recsMeta").textContent = "";
     return;
   }
-  el("recsMeta").textContent = "共 " + items.length + " 首";
   list.innerHTML = items
     .map(function (item) {
       return (
@@ -185,6 +183,85 @@ function renderRecommendations(items) {
       );
     })
     .join("");
+}
+
+const pagerState = {
+  listened: { page: 1, size: 8, pages: 1, total: 0 },
+  comments: { page: 1, size: 8, pages: 1, total: 0 },
+  replies: { page: 1, size: 8, pages: 1, total: 0 },
+  recommendations: { page: 1, size: 8, pages: 1, total: 0 },
+};
+
+function initPagers() {
+  document.querySelectorAll(".pager").forEach(function (pager) {
+    const kind = pager.getAttribute("data-kind");
+    pager.innerHTML =
+      '<button class="btn ghost" data-page="prev" type="button">上一页</button>' +
+      '<span class="pager-info">第 <input class="pager-input" type="number" min="1" value="1" /> / <span class="pager-total">1</span> 页</span>' +
+      '<button class="btn ghost" data-page="next" type="button">下一页</button>';
+    pager.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-page]");
+      if (!button) return;
+      const state = pagerState[kind];
+      const target =
+        button.getAttribute("data-page") === "next"
+          ? state.page + 1
+          : state.page - 1;
+      if (target >= 1 && target <= state.pages) loadList(kind, target);
+    });
+    pager.addEventListener("change", function (event) {
+      if (!event.target.classList.contains("pager-input")) return;
+      const value = parseInt(event.target.value, 10);
+      if (!Number.isFinite(value)) return;
+      const state = pagerState[kind];
+      const target = Math.min(Math.max(1, value), state.pages);
+      loadList(kind, target);
+    });
+  });
+}
+
+async function loadList(kind, page) {
+  const state = pagerState[kind];
+  if (!state) return;
+  if (page) state.page = page;
+  try {
+    const data = await bridge.apiGet("page/list", {
+      kind: kind,
+      page: state.page,
+      size: state.size,
+    });
+    state.page = data.page || 1;
+    state.pages = data.pages || 1;
+    state.total = data.total || 0;
+    const items = data.items || [];
+    if (kind === "listened") renderListened(items);
+    else if (kind === "comments") renderComments(items);
+    else if (kind === "replies") renderReplies(items);
+    else if (kind === "recommendations") {
+      renderRecommendations(items);
+      el("recsMeta").textContent = "共 " + state.total + " 首";
+    }
+    updatePager(kind);
+  } catch (error) {
+    setNotice("读取列表失败：" + error.message, "error");
+  }
+}
+
+function updatePager(kind) {
+  const pager = document.querySelector('.pager[data-kind="' + kind + '"]');
+  const state = pagerState[kind];
+  if (!pager || !state) return;
+  const input = pager.querySelector(".pager-input");
+  const total = pager.querySelector(".pager-total");
+  if (input) {
+    input.value = state.page;
+    input.max = state.pages;
+  }
+  if (total) total.textContent = state.pages;
+  const prev = pager.querySelector('[data-page="prev"]');
+  const next = pager.querySelector('[data-page="next"]');
+  if (prev) prev.disabled = state.page <= 1;
+  if (next) next.disabled = state.page >= state.pages;
 }
 
 function setPersonaForm(data) {
@@ -285,10 +362,12 @@ async function refresh() {
     const data = await bridge.apiGet("page/status");
     state.status = data;
     renderAccount(data);
-    renderListened(data.listened || []);
-    renderComments(data.comments || []);
-    renderReplies(data.replies || []);
-    renderRecommendations(data.recommendations || []);
+    await Promise.all([
+      loadList("listened", 1),
+      loadList("comments", 1),
+      loadList("replies", 1),
+      loadList("recommendations", 1),
+    ]);
     el("autoReply").checked = !!data.auto_reply;
     el("replyHint").textContent =
       "每 " + (data.reply_interval || 30) + " 分钟检查一次";
@@ -378,6 +457,7 @@ async function listenOnce() {
 }
 
 function bind() {
+  initPagers();
   el("refreshBtn").addEventListener("click", refresh);
   el("cookieBtn").addEventListener("click", cookieLogin);
   el("savePersonaBtn").addEventListener("click", savePersona);
