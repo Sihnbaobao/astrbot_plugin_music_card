@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.19.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.20.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -477,6 +477,8 @@ class MusicCardPlugin(Star):
             items = self.store.recent_replies(200)
         elif kind == "recommendations":
             items = self.store.recent_recommendations(200)
+        elif kind == "listened_counts":
+            items = self.store.listened_counts(500)
         else:
             return json_response({"items": [], "total": 0, "page": 1, "pages": 1})
         total = len(items)

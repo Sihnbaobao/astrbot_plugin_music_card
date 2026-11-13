@@ -129,6 +129,32 @@ function renderListened(items) {
     .join("");
 }
 
+function renderListenedCounts(items) {
+  const list = el("listenedCountsList");
+  if (!items || !items.length) {
+    list.innerHTML = '<li class="empty">还没有听歌记录。</li>';
+    return;
+  }
+  list.innerHTML = items
+    .map(function (item) {
+      return (
+        "<li>" +
+        '<div class="rec-main"><strong>' +
+        escapeHtml(item.name || item.song_id) +
+        "</strong><span>" +
+        escapeHtml(item.artist || "") +
+        "</span></div>" +
+        '<div class="rec-side"><span>听过 ' +
+        (item.count || 0) +
+        " 次</span><span>" +
+        formatAt(item.last_at) +
+        "</span></div>" +
+        "</li>"
+      );
+    })
+    .join("");
+}
+
 function renderComments(items) {
   const list = el("commentsList");
   if (!items || !items.length) {
@@ -187,6 +213,7 @@ function renderRecommendations(items) {
 
 const pagerState = {
   listened: { page: 1, size: 8, pages: 1, total: 0 },
+  listened_counts: { page: 1, size: 8, pages: 1, total: 0 },
   comments: { page: 1, size: 8, pages: 1, total: 0 },
   replies: { page: 1, size: 8, pages: 1, total: 0 },
   recommendations: { page: 1, size: 8, pages: 1, total: 0 },
@@ -235,6 +262,10 @@ async function loadList(kind, page) {
     state.total = data.total || 0;
     const items = data.items || [];
     if (kind === "listened") renderListened(items);
+    else if (kind === "listened_counts") {
+      renderListenedCounts(items);
+      el("listenedCountsMeta").textContent = "共 " + state.total + " 首";
+    }
     else if (kind === "comments") renderComments(items);
     else if (kind === "replies") renderReplies(items);
     else if (kind === "recommendations") {
@@ -364,6 +395,7 @@ async function refresh() {
     renderAccount(data);
     await Promise.all([
       loadList("listened", 1),
+      loadList("listened_counts", 1),
       loadList("comments", 1),
       loadList("replies", 1),
       loadList("recommendations", 1),
