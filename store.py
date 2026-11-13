@@ -29,6 +29,7 @@ class MusicStore:
         self.comments_path = self.root / "comments.jsonl"
         self.replies_path = self.root / "replies.jsonl"
         self.recommendations_path = self.root / "recommendations.json"
+        self.recommendations_log_path = self.root / "recommendations.jsonl"
 
     # ── 登录态 ──
 
@@ -184,23 +185,30 @@ class MusicStore:
 
     # ── 推荐记录 ──
 
-    def record_recommendation(self, song, chat=""):
+    def record_recommendation(self, song, chat="", user=""):
         """记录一次歌曲推荐。
 
         Args:
             song: 推荐出去的歌名。
             chat: 发生推荐的会话标识，可为空。
+            user: 推荐给谁，可为空。
         """
         song = str(song or "").strip()
         if not song:
             return
+        now = datetime.now().isoformat(timespec="seconds")
+        self._append(
+            self.recommendations_log_path,
+            {"at": now, "song": song, "chat": str(chat or ""), "user": str(user or "")},
+        )
         data = self._read_json(self.recommendations_path)
         entry = data.get(song)
         if not isinstance(entry, dict):
             entry = {"count": 0}
         entry["count"] = int(entry.get("count") or 0) + 1
-        entry["last_at"] = datetime.now().isoformat(timespec="seconds")
+        entry["last_at"] = now
         entry["last_chat"] = str(chat or "")
+        entry["last_user"] = str(user or "")
         data[song] = entry
         try:
             self.recommendations_path.write_text(
@@ -208,6 +216,17 @@ class MusicStore:
             )
         except Exception:
             pass
+
+    def recent_recommendation_events(self, limit=20):
+        """按时间倒序返回推荐事件。
+
+        Args:
+            limit: 最多返回多少条。
+
+        Returns:
+            包含 at、song、chat、user 的事件列表。
+        """
+        return self._recent(self.recommendations_log_path, limit)
 
     def recent_recommendations(self, limit=50):
         """按推荐次数倒序返回记录。

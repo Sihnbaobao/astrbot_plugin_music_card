@@ -175,7 +175,9 @@ function renderRecommendations(items) {
         escapeHtml(item.song || "") +
         "</strong><span>推荐 " +
         (item.count || 0) +
-        " 次</span></div>" +
+        " 次" +
+        (item.last_user ? " · 最近给 " + escapeHtml(item.last_user) : "") +
+        "</span></div>" +
         '<div class="rec-side"><span>' +
         formatAt(item.last_at) +
         "</span></div>" +

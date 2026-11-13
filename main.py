@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.17.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.18.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -209,6 +209,9 @@ class MusicCardPlugin(Star):
             recent_text = "、".join(name for name in recent_names if name)
             if recent_text:
                 hints.append(f"你最近在听：{recent_text}；推荐时换着来，别总推同一首。")
+            memory = self._recommendation_memory_text()
+            if memory:
+                hints.append(memory)
         if re.search(r"(听歌|听会儿歌|去听|听听歌|放首歌|听一首)", text):
             hints.append(
                 "想听歌的时候，直接 listen_music 去听；"
@@ -246,10 +249,44 @@ class MusicCardPlugin(Star):
                 if event.is_private_chat()
                 else event.get_group_id()
             )
+            user = str(event.get_sender_name() or event.get_sender_id() or "")
             for song in dict.fromkeys(songs):
-                self.store.record_recommendation(song.strip(), str(chat or ""))
+                self.store.record_recommendation(song.strip(), str(chat or ""), user)
         except Exception as exc:
             logger.warning(f"[music-card] 推荐记录失败：{exc}")
+
+    def _recommendation_memory_text(self, limit=5):
+        """Format recent recommendations as a short memory block.
+
+        Args:
+            limit: How many songs to include.
+
+        Returns:
+            A memory sentence, or an empty string.
+        """
+        items = self.store.recent_recommendations(limit)
+        if not items:
+            return ""
+        parts = []
+        for item in items:
+            song = str(item.get("song") or "").strip()
+            if not song:
+                continue
+            count = int(item.get("count") or 0)
+            when = str(item.get("last_at") or "")[:10]
+            who = str(item.get("last_user") or "").strip()
+            detail = f"{song}（{when}"
+            if who:
+                detail += f" 给 {who}"
+            detail += f"，共 {count} 次）"
+            parts.append(detail)
+        if not parts:
+            return ""
+        return (
+            "你之前推荐过："
+            + "；".join(parts)
+            + "。聊到相关话题时可以自然想起来，不用硬提。"
+        )
 
     def _event_state(self, event):
         """Get or initialize state scoped to the current message event.
