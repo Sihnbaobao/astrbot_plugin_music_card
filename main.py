@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.21.1")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.21.2")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -707,8 +707,9 @@ class MusicCardPlugin(Star):
         response = await self.context.llm_generate(
             chat_provider_id=provider,
             prompt=(
-                (memory_text + "\n\n" if memory_text else "")
-                + f"现在是 {clock}。你想听歌吗？想听哪首？\n"
+                f"现在是 {clock}。\n"
+                + (memory_text + "\n\n" if memory_text else "\n")
+                + "想听就听，不想听就继续发呆。\n"
                 '只输出 JSON：{"want": true或false, "query": "歌名或歌手"}。'
             ),
             system_prompt=persona_text or None,
