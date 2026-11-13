@@ -145,7 +145,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.21.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.21.1")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -697,44 +697,18 @@ class MusicCardPlugin(Star):
         if not provider:
             return
         recent = self.store.recent_listened(40)
-        liked = []
-        disliked = []
-        seen = set()
-        for item in recent:
-            song_id = str(item.get("song_id") or "")
-            name = str(item.get("name") or "").strip()
-            if not song_id or not name or song_id in seen:
-                continue
-            seen.add(song_id)
-            score = int(item.get("score") or 0)
-            if item.get("like"):
-                liked.append(f"{name}（{score} 分）" if score else name)
-            elif score and score <= 5:
-                disliked.append(name)
         recent_names = [
             f"{str(item.get('name') or '')}（{int(item.get('score') or 0)} 分）"
             for item in recent[:8]
             if item.get("name")
         ]
-        memory_lines = []
-        if recent_names:
-            memory_lines.append("你最近听过：" + "、".join(recent_names))
-        if liked:
-            memory_lines.append(
-                "你喜欢的：" + "、".join(liked[:6]) + "；想再听也可以。"
-            )
-        if disliked:
-            memory_lines.append(
-                "你不太喜欢的：" + "、".join(disliked[:6]) + "；别勉强。"
-            )
-        memory_text = "\n".join(memory_lines)
+        memory_text = "你最近听过：" + "、".join(recent_names) if recent_names else ""
         logger.info(f"[music-card] 自主听歌：问人格 {clock} 想不想听")
         response = await self.context.llm_generate(
             chat_provider_id=provider,
             prompt=(
                 (memory_text + "\n\n" if memory_text else "")
-                + f"现在是 {clock}。你想听歌吗？想听哪首？"
-                "可以重听喜欢的，也可以找首新的。\n"
+                + f"现在是 {clock}。你想听歌吗？想听哪首？\n"
                 '只输出 JSON：{"want": true或false, "query": "歌名或歌手"}。'
             ),
             system_prompt=persona_text or None,
