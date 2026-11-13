@@ -24,6 +24,12 @@
     <div class="notice" id="notice" hidden></div>
 
     <main class="stack">
+      <nav class="tabs">
+        <button class="tab active" data-tab="control" type="button">控制</button>
+        <button class="tab" data-tab="records" type="button">记录</button>
+      </nav>
+
+      <div class="tab-panel" data-panel="control">
       <section class="card">
         <div class="card-head">
           <h2>网易云账号</h2>
@@ -91,7 +97,9 @@
         <ul class="records" id="listenedList"></ul>
         <div class="pager" data-kind="listened"></div>
       </section>
+      </div>
 
+      <div class="tab-panel" data-panel="records" hidden>
       <section class="card">
         <div class="card-head">
           <h2>听过的歌</h2>
@@ -138,6 +146,7 @@
         <ul class="records" id="recsList"></ul>
         <div class="pager" data-kind="recommendations"></div>
       </section>
+      </div>
     </main>
 
     <script src="./app.js"></script>

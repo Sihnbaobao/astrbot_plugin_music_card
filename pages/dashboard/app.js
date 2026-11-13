@@ -219,6 +219,20 @@ const pagerState = {
   recommendations: { page: 1, size: 10, pages: 1, total: 0 },
 };
 
+function initTabs() {
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      const target = tab.getAttribute("data-tab");
+      document.querySelectorAll(".tab").forEach(function (item) {
+        item.classList.toggle("active", item === tab);
+      });
+      document.querySelectorAll(".tab-panel").forEach(function (panel) {
+        panel.hidden = panel.getAttribute("data-panel") !== target;
+      });
+    });
+  });
+}
+
 function initPagers() {
   document.querySelectorAll(".pager").forEach(function (pager) {
     const kind = pager.getAttribute("data-kind");
@@ -489,6 +503,7 @@ async function listenOnce() {
 }
 
 function bind() {
+  initTabs();
   initPagers();
   el("refreshBtn").addEventListener("click", refresh);
   el("cookieBtn").addEventListener("click", cookieLogin);

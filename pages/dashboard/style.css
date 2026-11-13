@@ -93,6 +93,19 @@ body {
   max-width: 900px;
   margin: 0 auto;
 }
+.tabs { display: flex; gap: 8px; }
+.tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tab.active { color: var(--text); border-color: var(--accent); }
+.tab-panel { display: grid; gap: 14px; }
+.tab-panel[hidden] { display: none; }
 
 .card {
   background: var(--card);
