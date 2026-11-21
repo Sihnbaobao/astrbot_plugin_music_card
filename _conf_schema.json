@@ -98,8 +98,8 @@
   "AUTO_LISTEN_TIMES": {
     "description": "想听歌的时间点",
     "type": "string",
-    "default": "10:00,15:00,21:00",
-    "hint": "逗号分隔的 24 小时时间，如 10:00,15:00,21:00。"
+    "default": "",
+    "hint": "留空 = 跟着她的清醒时间自动排 3 个时段（早/午/晚），和刷B站、逛空间错开；填逗号分隔的时间就按固定时间点问。"
   },
   "AUTO_LISTEN_UMO": {
     "description": "听歌后推送到",

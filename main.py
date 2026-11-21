@@ -15,6 +15,7 @@ from astrbot.api.star import Context, Star, register
 from astrbot.core import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
+from . import activity, body_sleep
 from .kugou import parse_kugou_card
 from .listener import generate_reply, listen, persona_prompt
 from .netease import (
@@ -145,7 +146,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.23.0")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.24.3")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -576,6 +577,10 @@ class MusicCardPlugin(Star):
         """检查最近评论下的新回复，必要时自动回复。"""
         if not self._cfg("REPLY_WATCH", True):
             return
+        # 睡着的时候不替人回评论：醒来之后下一轮照常检查，回复不会丢。
+        if body_sleep.read(self.context)["asleep"]:
+            logger.debug("[music-card] 睡着了，先不检查评论回复")
+            return
         auth = self.store.load_auth()
         cookie = str(auth.get("cookie") or "")
         if not cookie:
@@ -662,17 +667,69 @@ class MusicCardPlugin(Star):
         """Ask the persona whether it wants to listen, and listen if yes."""
         now = datetime.now()
         clock = now.strftime("%H:%M")
-        raw_times = str(self._cfg("AUTO_LISTEN_TIMES", "10:00,15:00,21:00"))
+        # 睡着的时候不听歌，也不叫醒她：到点了就等醒来后接着问。
+        sleep_state = body_sleep.read(self.context)
+        if sleep_state["asleep"] or sleep_state["in_bed"]:
+            logger.debug(
+                f"[music-card] 她这会儿不在听歌状态：{sleep_state['line'] or sleep_state['kind']}"
+            )
+            return
+        now_ts = time.time()
+        bedtime = float(sleep_state.get("bedtime") or 0.0)
+        if bedtime and now_ts > bedtime - 2700:
+            logger.debug("[music-card] 快到睡觉时间了，今天不听了")
+            return
+        nap_at = float(sleep_state.get("nap_at") or 0.0)
+        if nap_at and nap_at - 600 <= now_ts <= nap_at + 3600:
+            logger.debug("[music-card] 午睡时间，先不听")
+            return
+        raw_times = str(self._cfg("AUTO_LISTEN_TIMES", "") or "").strip()
         times = [
             item.strip()
             for item in raw_times.replace("，", ",").split(",")
             if item.strip()
         ]
-        if clock not in times:
-            return
-        key = f"{now.date()}-{clock}"
+        # 没有配时间点就跟着她的清醒时间排：早上、下午、晚上各一个，
+        # 和刷B站/逛空间错开（同一个时段不总撞在一起）。
+        persona = str(
+            self._cfg("PERSONA_ID", "") or sleep_state.get("persona") or "default"
+        )
+        if times:
+            now_minutes = now.hour * 60 + now.minute
+            slot = ""
+            for item in times:
+                hours, _, minutes = item.partition(":")
+                try:
+                    anchor = int(hours) * 60 + int(minutes or 0)
+                except ValueError:
+                    continue
+                if 0 <= now_minutes - anchor <= 45:
+                    slot = item
+                    break
+            if not slot:
+                return
+        else:
+            slot_list = activity.slots(
+                sleep_state, persona, str(now.date()), "music", 3, now_ts
+            )
+            due = 0.0
+            slot = ""
+            for index, stamp in enumerate(slot_list):
+                if stamp >= now_ts - 1200:
+                    due = stamp
+                    slot = str(index)
+                    break
+            if not due or not (0 <= now_ts - due <= 1500):
+                return
+        key = f"{now.date()}-{slot}"
         if key in self._auto_done:
             return
+        busy_until, busy_kind = activity.busy("astrbot_plugin_music_card", now_ts)
+        if busy_until > now_ts:
+            # 偶尔重叠没关系（边刷B站边听歌很自然），但大多数时候让一让。
+            if activity.roll(persona, str(now.date()), "music-overlap") > 0.25:
+                logger.info(f"[music-card] 她正在{busy_kind}，这次先让一让")
+                return
         self._auto_done = {
             item for item in self._auto_done if item.startswith(str(now.date()))
         }
@@ -769,6 +826,7 @@ class MusicCardPlugin(Star):
             for item in raw_categories.replace("，", ",").split(",")
             if item.strip()
         ]
+        activity.write("astrbot_plugin_music_card", "听歌", persona, now_ts + 900, 0.5)
         entry = await listen(
             self.context,
             self.store,

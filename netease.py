@@ -4,7 +4,7 @@ from difflib import SequenceMatcher
 
 import httpx
 
-from astrbot.api import logger
+from astrbot.core import logger
 
 from .weapi import weapi
 

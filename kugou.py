@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from astrbot.api import logger
+from astrbot.core import logger
 
 _HASH_LENGTH = 32
 _URL_TRAILING_CHARS = ".,!?;:)]}，。！？；：）》”’"

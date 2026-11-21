@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from astrbot.api import logger
+from astrbot.core import logger
 
 QQ_API = "https://u.y.qq.com/cgi-bin/musicu.fcg"
 _URL_TRAILING_CHARS = ".,!?;:)]}，。！？；：）》”’"
