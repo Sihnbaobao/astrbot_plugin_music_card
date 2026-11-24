@@ -283,6 +283,7 @@ async def listen(
     persona_pick=False,
     fallback_query="花谱",
     auto_comment=False,
+    comment_min_score=0,
     daily_limit=3,
     auto_save=False,
     min_score=9,
@@ -304,6 +305,7 @@ async def listen(
         persona_pick: 没有指定搜索词时，是否让模型按人格喜好挑一首。
         fallback_query: 人格挑歌失败时的兜底搜索词。
         auto_comment: 听完是否自动评论。
+        comment_min_score: 评论的最低分数；喜欢（like）时不受此限。
         daily_limit: 每日评论上限。
         auto_save: 听完是否按分数自动收藏并加入歌单。
         min_score: 达到多少分才收藏。
@@ -364,7 +366,12 @@ async def listen(
         "commented": False,
         "source": source,
     }
-    if auto_comment and daily_limit > 0 and store.comments_today() < daily_limit:
+    if (
+        auto_comment
+        and (liked or score >= comment_min_score)
+        and daily_limit > 0
+        and store.comments_today() < daily_limit
+    ):
         if store.has_commented(song["id"]):
             entry["comment_message"] = "已经评论过，跳过"
         else:

@@ -146,7 +146,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.24.3")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.24.4")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -838,6 +838,9 @@ class MusicCardPlugin(Star):
             persona_pick=not query,
             fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
             source="auto",
+            auto_comment=bool(self._cfg("AUTO_COMMENT", False)),
+            comment_min_score=6,
+            daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
             auto_save=bool(self._cfg("AUTO_SAVE", False)),
             min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
             playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
@@ -1304,6 +1307,9 @@ class MusicCardPlugin(Star):
                 persona_pick=not query,
                 fallback_query=str(self._cfg("LISTEN_QUERY", "花谱")),
                 source="chat",
+                auto_comment=bool(self._cfg("AUTO_COMMENT", False)),
+                comment_min_score=6,
+                daily_limit=int(self._cfg("COMMENT_DAILY_LIMIT", 3)),
                 auto_save=bool(self._cfg("AUTO_SAVE", False)),
                 min_score=int(self._cfg("LIKE_MIN_SCORE", 9)),
                 playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
