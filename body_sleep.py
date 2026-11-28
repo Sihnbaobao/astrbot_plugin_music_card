@@ -53,6 +53,12 @@ def _awake() -> dict[str, Any]:
         "awake_since": 0.0,
         "busy_until": 0.0,
         "busy_kind": "",
+        "care_until": 0.0,
+        "care_kind": "",
+        "release_until": 0.0,
+        "release_kind": "",
+        "unavailable_until": 0.0,
+        "unavailable_kind": "",
         "line": "",
     }
 
@@ -94,6 +100,17 @@ def normalise(entry: Any, now: float) -> dict[str, Any]:
         "awake_since": stamp("awake_since"),
         "busy_until": stamp("busy_until"),
         "busy_kind": str(entry.get("busy_kind") or ""),
+        "care_until": stamp("care_until"),
+        "care_kind": str(entry.get("care_kind") or ""),
+        "release_until": stamp("release_until"),
+        "release_kind": str(entry.get("release_kind") or ""),
+        "unavailable_until": max(
+            stamp("unavailable_until"),
+            stamp("care_until"),
+            stamp("release_until"),
+            stamp("busy_until"),
+        ),
+        "unavailable_kind": str(entry.get("unavailable_kind") or ""),
         "line": str(entry.get("line") or ""),
     }
 
@@ -214,3 +231,50 @@ def read(
         if candidate.get("enabled"):
             return candidate
     return _awake()
+
+
+def blocked(plan: dict[str, Any], now: float | None = None) -> tuple[float, str]:
+    """Return the current body unavailability window and a label.
+
+    Args:
+        plan: Normalised sleep/body state.
+        now: Unix timestamp, defaults to the current time.
+
+    Returns:
+        (until, label); (0, "") when the body is free.
+    """
+    stamp = time.time() if now is None else now
+    try:
+        until = max(
+            float(plan.get("unavailable_until") or 0.0),
+            float(plan.get("care_until") or 0.0),
+            float(plan.get("release_until") or 0.0),
+            float(plan.get("busy_until") or 0.0),
+        )
+    except (TypeError, ValueError):
+        until = 0.0
+    if until <= stamp:
+        return 0.0, ""
+    kind = str(plan.get("unavailable_kind") or "")
+    if not kind:
+        try:
+            care = float(plan.get("care_until") or 0.0)
+            release = float(plan.get("release_until") or 0.0)
+            busy = float(plan.get("busy_until") or 0.0)
+        except (TypeError, ValueError):
+            care = release = busy = 0.0
+        if care >= max(release, busy):
+            kind = str(plan.get("care_kind") or "care")
+        elif release >= busy:
+            kind = str(plan.get("release_kind") or "self")
+        else:
+            kind = str(plan.get("busy_kind") or "busy")
+    label = {
+        "shower": "洗澡",
+        "self": "自慰",
+        "bed": "自慰",
+        "toilet": "自慰",
+        "care": "照顾身体",
+        "busy": "忙别的事",
+    }.get(kind, kind)
+    return until, label

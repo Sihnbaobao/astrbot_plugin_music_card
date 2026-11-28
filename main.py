@@ -146,7 +146,7 @@ def _netease_song_id(url):
     return song_id if song_id and song_id.isdigit() else None
 
 
-@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.24.4")
+@register("astrbot_plugin_music_card", "Sihnbaobao", "音乐链接转网易云卡片", "1.25.0")
 class MusicCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -683,6 +683,12 @@ class MusicCardPlugin(Star):
         if nap_at and nap_at - 600 <= now_ts <= nap_at + 3600:
             logger.debug("[music-card] 午睡时间，先不听")
             return
+        blocked_until, blocked_kind = body_sleep.blocked(sleep_state, now_ts)
+        can_share = blocked_until <= now_ts
+        if not can_share:
+            logger.info(
+                f"[music-card] 她正在{blocked_kind}，歌可以听，但这轮先不往聊天里发"
+            )
         raw_times = str(self._cfg("AUTO_LISTEN_TIMES", "") or "").strip()
         times = [
             item.strip()
@@ -846,7 +852,7 @@ class MusicCardPlugin(Star):
             playlist_prefix=str(self._cfg("PLAYLIST_PREFIX", "璃月")),
             categories=categories,
         )
-        if configured_umo and entry.get("reaction"):
+        if can_share and configured_umo and entry.get("reaction"):
             try:
                 await self.context.send_message(
                     configured_umo, MessageChain([Plain(entry["reaction"])])
