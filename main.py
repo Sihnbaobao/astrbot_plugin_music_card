@@ -578,8 +578,13 @@ class MusicCardPlugin(Star):
         if not self._cfg("REPLY_WATCH", True):
             return
         # 睡着的时候不替人回评论：醒来之后下一轮照常检查，回复不会丢。
-        if body_sleep.read(self.context)["asleep"]:
+        sleep_state = body_sleep.read(self.context)
+        if sleep_state["asleep"]:
             logger.debug("[music-card] 睡着了，先不检查评论回复")
+            return
+        blocked_until, blocked_kind = body_sleep.blocked(sleep_state)
+        if blocked_until > time.time():
+            logger.debug(f"[music-card] 她正在{blocked_kind}，先不检查评论回复")
             return
         auth = self.store.load_auth()
         cookie = str(auth.get("cookie") or "")
